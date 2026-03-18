@@ -1,0 +1,6 @@
+pygame>=2.5.0
+moderngl>=5.10.0
+numpy>=1.26.0
+python-dotenv>=1.0.0
+openai>=1.0.0
+google-genai>=0.6.0

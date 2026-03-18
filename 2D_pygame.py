@@ -1289,6 +1289,49 @@ def _difficulty_index(difficulty):
     except Exception:
         return 1
 
+def _safe_grade_int(grade, default=3):
+    try:
+        return max(1, min(6, int(grade)))
+    except Exception:
+        return default
+
+SUBJECT_GRADE_RECOMMENDED_DIFFICULTY = {
+    "算数": {1: "簡単", 2: "簡単", 3: "普通", 4: "普通", 5: "難しい", 6: "難しい"},
+    "理科": {1: "簡単", 2: "簡単", 3: "普通", 4: "普通", 5: "難しい", 6: "難しい"},
+    "国語": {1: "簡単", 2: "簡単", 3: "普通", 4: "普通", 5: "普通", 6: "難しい"},
+}
+
+def _recommended_difficulty(subject, grade):
+    g_int = _safe_grade_int(grade, default=3)
+    subject_table = SUBJECT_GRADE_RECOMMENDED_DIFFICULTY.get(subject, {})
+    if g_int in subject_table:
+        return subject_table[g_int]
+    if g_int <= 2:
+        return "簡単"
+    if g_int <= 4:
+        return "普通"
+    return "難しい"
+
+def _effective_difficulty(subject, grade, requested_difficulty):
+    """
+    学年・教科に対して不自然な難易度を避けるため、設定値を妥当な範囲に補正する。
+    """
+    g_int = _safe_grade_int(grade, default=3)
+    req_idx = _difficulty_index(requested_difficulty)
+    rec_idx = _difficulty_index(_recommended_difficulty(subject, g_int))
+    max_idx = len(DIFFICULTY_LEVELS) - 1
+
+    # 基本は推奨難易度の ±1 段階まで許可しつつ、低学年・高学年の極端値を防ぐ
+    min_allowed = max(0, rec_idx - 1)
+    max_allowed = min(max_idx, rec_idx + 1)
+    if g_int <= 2:
+        max_allowed = min(max_allowed, 1)  # 低学年は「難しい」を抑制
+    elif g_int >= 5:
+        min_allowed = max(min_allowed, 1)  # 高学年は「簡単」に寄りすぎない
+
+    eff_idx = min(max(req_idx, min_allowed), max_allowed)
+    return DIFFICULTY_LEVELS[eff_idx]
+
 def _grade_scope_prompt_lines(grade, subject):
     try:
         g_int = int(grade)
@@ -2101,7 +2144,8 @@ def api_worker(worker_id):
             subject = conf["subject"]
             # 教科ごとの学年設定を使用。なければ代表学年
             grade = conf.get("subject_grades", {}).get(subject, conf["grade"])
-            diff = conf["difficulties"].get(subject, "普通")
+            requested_diff = conf["difficulties"].get(subject, "普通")
+            diff = _effective_difficulty(subject, grade, requested_diff)
             
             # 履歴を直近10件取得してAIに渡す（重複回避）
             with buffer_lock:
@@ -2279,7 +2323,9 @@ class Player:
         subj = conf.get("subject")
         diff = None
         if subj:
-            diff = conf.get("difficulties", {}).get(subj)
+            grade = conf.get("subject_grades", {}).get(subj, conf.get("grade", 3))
+            requested_diff = conf.get("difficulties", {}).get(subj, "普通")
+            diff = _effective_difficulty(subj, grade, requested_diff)
         self.wall_speed_ratio = _compute_wall_speed_ratio_for_quiz(self.current_quiz, diff)
         qlen = len(q_text)
         
@@ -2380,7 +2426,9 @@ class Player:
             
         conf = PLAYER_CONFIGS[self.pid]
         subj = conf["subject"]
-        current_diff = conf["difficulties"].get(subj, "普通")
+        grade = conf.get("subject_grades", {}).get(subj, conf.get("grade", 3))
+        current_diff = _effective_difficulty(subj, grade, conf["difficulties"].get(subj, "普通"))
+        conf["difficulties"][subj] = current_diff
         
         levels = ["簡単", "普通", "難しい"]
         try:
@@ -2394,7 +2442,7 @@ class Player:
             if idx > 0: new_idx = idx - 1 # 不正解なら易しく
             
         if new_idx != idx:
-            new_diff = levels[new_idx]
+            new_diff = _effective_difficulty(subj, grade, levels[new_idx])
             conf["difficulties"][subj] = new_diff
             print(f"P{self.pid} Difficulty changed: {current_diff} -> {new_diff}")
             
@@ -2489,7 +2537,7 @@ class Player:
                 diff = "普通"
             else:
                 diff = "簡単"
-            
+            diff = _effective_difficulty(subj, self.current_assessment_grade, diff)
             PLAYER_CONFIGS[self.pid]["difficulties"][subj] = diff
             
             self.current_assessment_subject_idx += 1
@@ -3186,11 +3234,13 @@ while running:
 
                 for subj, rect in difficulty_toggle_rects.items():
                     if rect.collidepoint(e.pos):
-                        conf = PLAYER_CONFIGS[current_editing_pid]["difficulties"]
+                        player_conf = PLAYER_CONFIGS[current_editing_pid]
+                        conf = player_conf["difficulties"]
                         current = conf.get(subj, "普通")
                         idx = DIFFICULTY_LEVELS.index(current)
                         next_idx = (idx + 1) % len(DIFFICULTY_LEVELS)
-                        conf[subj] = DIFFICULTY_LEVELS[next_idx]
+                        grade = player_conf.get("subject_grades", {}).get(subj, player_conf.get("grade", 3))
+                        conf[subj] = _effective_difficulty(subj, grade, DIFFICULTY_LEVELS[next_idx])
 
         elif GAME_STATE == "SELECT":
             if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
@@ -3203,6 +3253,8 @@ while running:
                             PLAYER_CONFIGS[pid]["grade"] = g
                             for s in PLAYER_CONFIGS[pid]["subject_grades"]: 
                                 PLAYER_CONFIGS[pid]["subject_grades"][s] = g
+                            for s, d in PLAYER_CONFIGS[pid]["difficulties"].items():
+                                PLAYER_CONFIGS[pid]["difficulties"][s] = _effective_difficulty(s, g, d)
                 
                 for s, r in subject_buttons.items():
                     if r.collidepoint(e.pos):
