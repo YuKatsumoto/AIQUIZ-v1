@@ -211,6 +211,9 @@ class BufferedQuizProvider:
 
     def _api_worker(self, _worker_id: int) -> None:
         while not self.stop_event.is_set():
+            if self.llm_mode != "ONLINE":
+                time.sleep(0.05)
+                continue
             if not self._worker_should_fill():
                 time.sleep(0.03)
                 continue
@@ -257,10 +260,16 @@ class BufferedQuizProvider:
         self.grade = int(grade)
         self.difficulty = difficulty
         self.mode = mode
+        # OFFLINE: read directly from offline_bank.json via OfflineQuizProvider
+        # (buffer is only used for ONLINE / hybrid generation).
+        if self.llm_mode != "ONLINE":
+            return self._fetch_offline(max(1, count))
         out = self._pull_many(max(1, count))
         return out
 
     def is_ready_for_mode(self) -> bool:
+        if self.llm_mode != "ONLINE":
+            return True
         if self.mode == MODE_TEN:
             with self.buffer_lock:
                 return len(self.buffer) >= min(10, self.target_count)

@@ -43,12 +43,10 @@ class BufferedProviderTests(unittest.TestCase):
         try:
             provider.set_llm_mode("OFFLINE")
             provider.begin_round("算数", 3, "普通", MODE_TEN, 10)
-            for _ in range(40):
-                if provider.buffered_count() > 0:
-                    break
-                time.sleep(0.02)
+            # OFFLINE pulls synchronously from offline_bank.json (no buffer prefill).
             got = provider.get_quizzes("算数", 3, "普通", MODE_TEN, 2)
             self.assertGreaterEqual(len(got), 1)
+            self.assertEqual(provider.buffered_count(), 0)
         finally:
             provider.stop()
 
@@ -62,11 +60,8 @@ class BufferedProviderTests(unittest.TestCase):
             num_workers=1,
         )
         try:
+            provider.set_llm_mode("OFFLINE")
             provider.begin_round("算数", 3, "普通", MODE_ENDLESS, 1)
-            for _ in range(40):
-                if provider.is_ready_for_mode():
-                    break
-                time.sleep(0.02)
             self.assertTrue(provider.is_ready_for_mode())
         finally:
             provider.stop()
