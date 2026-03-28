@@ -1,0 +1,16 @@
+# Secrets — never commit
+.env
+.env.local
+.env.*.local
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.log
+
+# Python (repo root / subfolders)
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/

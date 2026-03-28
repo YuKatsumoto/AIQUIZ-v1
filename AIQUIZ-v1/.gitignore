@@ -1,0 +1,32 @@
+# Unreal Engine（丸ごとプッシュしない場合は以下で除外）
+AIQuizUE/
+*.vsidx
+*.sln
+*.suo
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+
+# Visual Studio
+.vs/
+*.user
+*.userosscache
+*.sln.docstates
+
+# 環境変数・秘密情報（GitHub に上げない）
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+
+# その他
+*.log
+.DS_Store
+Thumbs.db

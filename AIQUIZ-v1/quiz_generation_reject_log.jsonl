@@ -1,0 +1,8 @@
+{"timestamp": "2026-03-07 17:54:45", "player_id": 1, "source": "ChatGPT", "subject": "国語", "grade": 3, "difficulty": "普通", "reason": "grade-fit score 0.25 < 0.28", "question": "「走る」という言葉の送り仮名として正しいのはどちらですか。"}
+{"timestamp": "2026-03-07 17:54:45", "player_id": 1, "source": "ChatGPT", "subject": "国語", "grade": 3, "difficulty": "普通", "reason": "grade-fit score 0.25 < 0.28", "question": "「早起きは三文の徳」の意味として正しいのはどちらですか。"}
+{"timestamp": "2026-03-07 17:54:45", "player_id": 1, "source": "ChatGPT", "subject": "国語", "grade": 3, "difficulty": "普通", "reason": "grade-fit score 0.25 < 0.28", "question": "国語辞典で「はし」を調べるとき、どちらの順で探すと早く見つかりますか。"}
+{"timestamp": "2026-03-07 17:54:50", "player_id": 1, "source": "ChatGPT", "subject": "国語", "grade": 3, "difficulty": "普通", "reason": "grade-fit score 0.25 < 0.30", "question": "「さくら」をローマ字で書くとき、正しいのはどちらですか。"}
+{"timestamp": "2026-03-07 17:54:50", "player_id": 1, "source": "ChatGPT", "subject": "国語", "grade": 3, "difficulty": "普通", "reason": "grade-fit score 0.25 < 0.33", "question": "「はし」をローマ字で書くとき、haとshiの間に小さい「つ」が入る場合、どう書きますか。"}
+{"timestamp": "2026-03-07 17:54:50", "player_id": 1, "source": "ChatGPT", "subject": "国語", "grade": 3, "difficulty": "普通", "reason": "grade-fit score 0.25 < 0.33", "question": "「花びん」の「花」の部首はどちらですか。"}
+{"t": 1774680948, "player": 1, "subject": "算数", "grade": 3, "difficulty": "普通", "reason": "similar_question", "q": "【図形】円のまわりの長さを何という？", "src": "OFFLINE"}
+{"t": 1774680948, "player": 1, "subject": "算数", "grade": 3, "difficulty": "普通", "reason": "similar_question", "q": "【計算】0 × 5 は？", "src": "OFFLINE"}

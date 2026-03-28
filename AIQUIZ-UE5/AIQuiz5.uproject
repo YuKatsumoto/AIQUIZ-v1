@@ -1,0 +1,13 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "5.4",
+	"Category": "",
+	"Description": "AI脱出クイズ 3D (UE5)",
+	"Modules": [
+		{
+			"Name": "AIQuiz5",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
