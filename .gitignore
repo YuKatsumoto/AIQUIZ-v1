@@ -1,3 +1,6 @@
+# 未使用の断片（正式な UE プロジェクトは AIQUIZ-UE5/）
+AIQuiz5/
+
 # Secrets — never commit
 .env
 .env.local
