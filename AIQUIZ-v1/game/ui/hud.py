@@ -1,3 +1,9 @@
+"""HUD / UI overlay for the 3D Engine-Free quiz game.
+
+Renders all 2-D UI elements onto a transparent Pygame ``Surface`` that the
+renderer composites on top of the 3-D scene.
+"""
+
 import os
 import sys
 from dataclasses import dataclass
@@ -13,11 +19,16 @@ from game.core.constants import (
     STATE_CORRECT,
     STATE_GAME_OVER,
     STATE_MENU,
+    STATE_PLAYING,
     STATE_PRELOADING,
     SUBJECTS,
 )
 from game.core.game_state import QuizGameState
 
+
+# ---------------------------------------------------------------------------
+# Font helper
+# ---------------------------------------------------------------------------
 
 def japanese_font_path() -> str:
     if sys.platform == "win32":
@@ -35,28 +46,77 @@ def japanese_font_path() -> str:
     return ""
 
 
+# ---------------------------------------------------------------------------
+# Theme
+# ---------------------------------------------------------------------------
+
 @dataclass
 class UITheme:
-    menu_bg: tuple[int, int, int, int] = (244, 240, 232, 255)
-    fg: tuple[int, int, int] = (35, 40, 48)
-    fg_dark: tuple[int, int, int] = (20, 23, 29)
-    hint: tuple[int, int, int] = (110, 116, 125)
-    accent_blue: tuple[int, int, int] = (29, 78, 137)
-    accent_orange: tuple[int, int, int] = (168, 73, 43)
-    green: tuple[int, int, int] = (50, 205, 50)
-    red: tuple[int, int, int] = (220, 20, 60)
-    white: tuple[int, int, int] = (245, 248, 255)
-    gold: tuple[int, int, int] = (255, 215, 0)
-    hero_card: tuple[int, int, int] = (255, 252, 245)
-    hero_border: tuple[int, int, int] = (214, 204, 183)
-    side_card: tuple[int, int, int] = (255, 250, 240)
-    side_border: tuple[int, int, int] = (219, 210, 190)
-    mode_ten_bg: tuple[int, int, int] = (237, 244, 252)
-    mode_endless_bg: tuple[int, int, int] = (252, 240, 232)
-    start_btn: tuple[int, int, int] = (241, 163, 72)
-    chip_bg: tuple[int, int, int] = (234, 228, 216)
-    chip_border: tuple[int, int, int] = (204, 195, 175)
+    # Menu
+    menu_bg: tuple = (244, 240, 232, 255)
+    fg: tuple = (35, 40, 48)
+    fg_dark: tuple = (20, 23, 29)
+    hint: tuple = (110, 116, 125)
+    accent_blue: tuple = (29, 78, 137)
+    accent_orange: tuple = (168, 73, 43)
+    # In-game
+    green: tuple = (50, 220, 80)
+    red: tuple = (220, 40, 60)
+    white: tuple = (240, 245, 255)
+    gold: tuple = (255, 215, 0)
+    cyan: tuple = (0, 210, 255)
+    # Cards
+    hero_card: tuple = (255, 252, 245)
+    hero_border: tuple = (214, 204, 183)
+    side_card: tuple = (255, 250, 240)
+    side_border: tuple = (219, 210, 190)
+    # Buttons
+    mode_ten_bg: tuple = (237, 244, 252)
+    mode_endless_bg: tuple = (252, 240, 232)
+    start_btn: tuple = (241, 163, 72)
+    chip_bg: tuple = (234, 228, 216)
+    chip_border: tuple = (204, 195, 175)
+    # Gameplay overlays
+    card_bg: tuple = (10, 14, 26, 200)
+    card_border: tuple = (60, 80, 130)
+    overlay_bg: tuple = (6, 8, 18, 210)
 
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _rounded_rect(surf: pygame.Surface, color, rect: pygame.Rect, radius: int = 16, width: int = 0):
+    """Draw a rounded rectangle (handles alpha tuple)."""
+    if len(color) == 4:
+        tmp = pygame.Surface((rect.w, rect.h), pygame.SRCALPHA)
+        pygame.draw.rect(tmp, color, (0, 0, rect.w, rect.h), width=width, border_radius=radius)
+        surf.blit(tmp, rect.topleft)
+    else:
+        pygame.draw.rect(surf, color, rect, width=width, border_radius=radius)
+
+
+def _wrap_lines(text: str, font: pygame.font.Font, max_w: int) -> list[str]:
+    if font.size(text)[0] <= max_w:
+        return [text]
+    lines: list[str] = []
+    cur = ""
+    for ch in text:
+        t = cur + ch
+        if font.size(t)[0] > max_w:
+            if cur:
+                lines.append(cur)
+            cur = ch
+        else:
+            cur = t
+    if cur:
+        lines.append(cur)
+    return lines or [text]
+
+
+# ---------------------------------------------------------------------------
+# HudRenderer
+# ---------------------------------------------------------------------------
 
 class HudRenderer:
     def __init__(self, width: int, height: int):
@@ -74,6 +134,7 @@ class HudRenderer:
         self.menu_hitboxes: dict[str, pygame.Rect] = {}
         self._mouse_pos = (0, 0)
         self._image_cache: dict[str, pygame.Surface] = {}
+        self._anim_t = 0.0
 
     def resize(self, width: int, height: int):
         self.width = width
@@ -82,6 +143,10 @@ class HudRenderer:
 
     def set_mouse_pos(self, pos: tuple[int, int]):
         self._mouse_pos = pos
+
+    # -----------------------------------------------------------------------
+    # Click handling
+    # -----------------------------------------------------------------------
 
     def handle_menu_click(self, pos: tuple[int, int], game: QuizGameState) -> bool:
         if game.game_state != STATE_MENU:
@@ -104,7 +169,6 @@ class HudRenderer:
                 game.cycle_difficulty(1)
                 return True
             return False
-
         # CONFIG step
         if self.menu_hitboxes.get("start_game", pygame.Rect(0, 0, 0, 0)).collidepoint(pos):
             game.start_game()
@@ -139,252 +203,299 @@ class HudRenderer:
                 return True
         return False
 
+    # -----------------------------------------------------------------------
+    # Private helpers
+    # -----------------------------------------------------------------------
+
     def _font(self, size: int, bold: bool = False) -> pygame.font.Font:
-        font = pygame.font.Font(self.ja_font if self.ja_font else None, size)
-        font.set_bold(bold)
-        return font
+        f = pygame.font.Font(self.ja_font if self.ja_font else None, size)
+        f.set_bold(bold)
+        return f
 
-    def _draw_menu_button(
-        self,
-        surface: pygame.Surface,
-        rect: pygame.Rect,
-        title: str,
-        desc: str,
-        accent: tuple[int, int, int],
-        bg: tuple[int, int, int],
-        active: bool,
-    ):
-        mouse_over = rect.collidepoint(self._mouse_pos)
-        fill = bg if active else (246, 242, 234)
-        if mouse_over:
-            fill = tuple(max(0, min(255, c - 10)) for c in fill)
-        pygame.draw.rect(surface, fill, rect, border_radius=18)
-        pygame.draw.rect(surface, accent if active else (198, 190, 174), rect, width=3 if active else 2, border_radius=18)
-
-        pygame.draw.rect(surface, accent, (rect.x + 16, rect.y + 16, 10, rect.h - 32), border_radius=5)
-        cap_font = self._font(26, bold=True)
-        desc_font = self._font(18)
-        cap = cap_font.render(title, True, (28, 32, 36))
-        desc_surf = desc_font.render(desc, True, (96, 101, 106))
-        surface.blit(cap, (rect.x + 42, rect.y + 18))
-        surface.blit(desc_surf, (rect.x + 44, rect.y + 56))
-
-    def _draw_text(self, surface: pygame.Surface, font: pygame.font.Font, text: str, x: int, y: int, color):
-        line_h = font.get_height() + 4
+    def _text(self, surf, font, text, x, y, color):
+        lh = font.get_height() + 4
         for i, line in enumerate(text.split("\n")):
             img = font.render(line, True, color)
-            surface.blit(img, (x, y + i * line_h))
+            surf.blit(img, (x, y + i * lh))
+
+    def _text_center(self, surf, font, text, cx, cy, color):
+        img = font.render(text, True, color)
+        surf.blit(img, img.get_rect(center=(cx, cy)))
+
+    # -----------------------------------------------------------------------
+    # Menu drawing (largely preserved from original)
+    # -----------------------------------------------------------------------
 
     def _draw_menu(self, surface: pygame.Surface, game: QuizGameState):
-        # Directly ported layout style from 2D_pygame.py (draw_title/draw_select)
         w, h = self.width, self.height
         surface.fill((244, 240, 232))
         self.menu_hitboxes = {}
 
         if game.menu_step == MENU_STEP_MODE:
-            left_x = max(36, int(w * 0.07))
-            compact_layout = w < 1080
-            if compact_layout:
-                content_w = w - left_x * 2
-                panel_x = left_x
-                panel_w = content_w
-            else:
-                content_w = min(int(w * 0.48), 520)
-                panel_x = max(32, int(w * 0.58))
-                panel_w = min(w - panel_x - 36, 380)
+            self._draw_mode_select(surface, game, w, h)
+        else:
+            self._draw_config_select(surface, game, w, h)
 
-            font_title = self._font(58, bold=True)
-            font_section = self._font(18, bold=True)
-            font_button = self._font(26, bold=True)
-            font_chip_value = self._font(22)
-            font_meta = self._font(18)
-            font_small = self._font(16)
-
-            title_main = font_title.render("AI脱出クイズ" if not self.use_english_ui else "AI Escape Quiz", True, (34, 38, 42))
-            surface.blit(title_main, (left_x, int(h * 0.08)))
-
-            badge = pygame.Rect(0, 0, min(300, w // 3), 44)
-            badge.topright = (w - 28, 24)
-            pygame.draw.rect(surface, (34, 38, 42), badge, border_radius=22)
-            badge_text = font_meta.render("Player 1", True, (245, 242, 232))
-            surface.blit(badge_text, badge_text.get_rect(center=badge.center))
-
-            hero_top = int(h * 0.19)
-            hero_card_h = int(h * (0.40 if compact_layout else 0.50))
-            hero_card = pygame.Rect(left_x, hero_top, content_w, hero_card_h)
-            pygame.draw.rect(surface, (255, 252, 245), hero_card, border_radius=26)
-            pygame.draw.rect(surface, (214, 204, 183), hero_card, width=2, border_radius=26)
-
-            section_label = font_section.render("PLAY MODE", True, (165, 88, 42))
-            surface.blit(section_label, (hero_card.x + 26, hero_card.y + 22))
-
-            mode_gap = 18
-            mode_y = hero_card.y + 62
-            mode_w = hero_card.w - 52
-            mode_h = 96
-            mode_ten_rect = pygame.Rect(hero_card.x + 26, mode_y, mode_w, mode_h)
-            mode_endless_rect = pygame.Rect(hero_card.x + 26, mode_y + mode_h + mode_gap, mode_w, mode_h)
-            self.menu_hitboxes["mode_ten"] = mode_ten_rect
-            self.menu_hitboxes["mode_endless"] = mode_endless_rect
-
-            mode_desc = {
-                MODE_TEN: ("10問チャレンジ", "10問でスコアを競う短期決戦"),
-                MODE_ENDLESS: ("エンドレス", "問題を解き続ける継続プレイ"),
-            }
-            mode_colors = {
-                MODE_TEN: ((29, 78, 137), (237, 244, 252)),
-                MODE_ENDLESS: ((168, 73, 43), (252, 240, 232)),
-            }
-            for mode, rect in ((MODE_TEN, mode_ten_rect), (MODE_ENDLESS, mode_endless_rect)):
-                accent, bg = mode_colors[mode]
-                active = game.mode == mode
-                fill = bg if active else (246, 242, 234)
-                pygame.draw.rect(surface, fill, rect, border_radius=22)
-                pygame.draw.rect(surface, accent if active else (198, 190, 174), rect, width=3 if active else 2, border_radius=22)
-                pygame.draw.rect(surface, accent, (rect.x + 16, rect.y + 16, 10, rect.h - 32), border_radius=5)
-                cap, desc = mode_desc[mode]
-                cap_surf = font_button.render(cap, True, (28, 32, 36))
-                desc_surf = font_meta.render(desc, True, (96, 101, 106))
-                surface.blit(cap_surf, (rect.x + 42, rect.y + 18))
-                surface.blit(desc_surf, (rect.x + 44, rect.y + 56))
-
-            settings_rect = pygame.Rect(hero_card.x + 26, hero_card.bottom - 72, mode_w, 52)
-            self.menu_hitboxes["settings_continue"] = settings_rect
-            settings_bg = (241, 163, 72)
-            if settings_rect.collidepoint(self._mouse_pos):
-                settings_bg = (228, 152, 66)
-            pygame.draw.rect(surface, settings_bg, settings_rect, border_radius=16)
-            settings_text = font_button.render("難易度・詳細設定" if not self.use_english_ui else "Continue", True, (255, 255, 255))
-            surface.blit(settings_text, settings_text.get_rect(center=settings_rect.center))
-
-            side_panel_y = hero_card.bottom + 22 if compact_layout else hero_top
-            side_panel_h = int(h * 0.40) if compact_layout else int(h * 0.58)
-            side_panel = pygame.Rect(panel_x, side_panel_y, panel_w, side_panel_h)
-            pygame.draw.rect(surface, (255, 250, 240), side_panel, border_radius=26)
-            pygame.draw.rect(surface, (219, 210, 190), side_panel, width=2, border_radius=26)
-            panel_title = font_section.render("QUICK SETTINGS", True, (75, 79, 84))
-            surface.blit(panel_title, (side_panel.x + 22, side_panel.y + 20))
-
-            chip_x = side_panel.x + 22
-            chip_w = side_panel.w - 44
-            chip_h = 74
-            chip_gap = 18
-
-            def draw_chip(rect: pygame.Rect, label: str, value: str, bg: tuple[int, int, int]):
-                pygame.draw.rect(surface, bg, rect, border_radius=18)
-                pygame.draw.rect(surface, (214, 204, 183), rect, width=2, border_radius=18)
-                label_surf = font_meta.render(label, True, (92, 97, 103))
-                surface.blit(label_surf, (rect.x + 16, rect.y + 10))
-                hint_surf = font_small.render("クリックで変更", True, (120, 124, 129))
-                surface.blit(hint_surf, hint_surf.get_rect(topright=(rect.right - 16, rect.y + 12)))
-                value_surf = font_chip_value.render(value, True, (32, 37, 42))
-                surface.blit(value_surf, (rect.x + 16, rect.y + 38))
-
-            chip_player = pygame.Rect(chip_x, side_panel.y + 58, chip_w, chip_h)
-            chip_diff = pygame.Rect(chip_x, chip_player.bottom + chip_gap, chip_w, chip_h)
-            chip_mode = pygame.Rect(chip_x, chip_diff.bottom + chip_gap, chip_w, chip_h)
-            self.menu_hitboxes["chip_diff_toggle"] = chip_diff
-            self.menu_hitboxes["chip_mode_toggle"] = chip_mode
-            draw_chip(chip_player, "プレイヤー数", "1人", (239, 243, 246))
-            draw_chip(chip_diff, "難易度", game.difficulty, (242, 239, 231))
-            llm_value = "ONLINE / AI生成" if game.llm_mode == "ONLINE" else "OFFLINE / 内蔵問題"
-            draw_chip(chip_mode, "出題方式", llm_value, (234, 242, 236))
-            return
-
-        # CONFIG screen port (2D draw_select/layout_select style)
+    def _draw_mode_select(self, surface, game, w, h):
         left_x = max(36, int(w * 0.07))
-        card_w = min(w - left_x * 2, 980)
-        card_x = (w - card_w) // 2
+        compact = w < 1080
+        content_w = w - left_x * 2 if compact else min(int(w * 0.48), 520)
+        panel_x = left_x if compact else max(32, int(w * 0.58))
+        panel_w = content_w if compact else min(w - panel_x - 36, 380)
+
+        ft = self._font(58, True)
+        fs = self._font(18, True)
+        fb = self._font(26, True)
+        fcv = self._font(22)
+        fm = self._font(18)
+        fsm = self._font(16)
+
+        title = ft.render("AI脱出クイズ" if not self.use_english_ui else "AI Escape Quiz", True, (34, 38, 42))
+        surface.blit(title, (left_x, int(h * 0.08)))
+
+        badge = pygame.Rect(0, 0, min(300, w // 3), 44)
+        badge.topright = (w - 28, 24)
+        pygame.draw.rect(surface, (34, 38, 42), badge, border_radius=22)
+        bt = fm.render("Player 1", True, (245, 242, 232))
+        surface.blit(bt, bt.get_rect(center=badge.center))
+
+        hero_top = int(h * 0.19)
+        hero_h = int(h * (0.40 if compact else 0.50))
+        hero = pygame.Rect(left_x, hero_top, content_w, hero_h)
+        pygame.draw.rect(surface, (255, 252, 245), hero, border_radius=26)
+        pygame.draw.rect(surface, (214, 204, 183), hero, width=2, border_radius=26)
+
+        sl = fs.render("PLAY MODE", True, (165, 88, 42))
+        surface.blit(sl, (hero.x + 26, hero.y + 22))
+
+        my = hero.y + 62
+        mw = hero.w - 52
+        mh = 96
+        mg = 18
+        r_ten = pygame.Rect(hero.x + 26, my, mw, mh)
+        r_end = pygame.Rect(hero.x + 26, my + mh + mg, mw, mh)
+        self.menu_hitboxes["mode_ten"] = r_ten
+        self.menu_hitboxes["mode_endless"] = r_end
+
+        modes = {
+            MODE_TEN: ("10問チャレンジ", "10問でスコアを競う短期決戦", (29, 78, 137), (237, 244, 252)),
+            MODE_ENDLESS: ("エンドレス", "問題を解き続ける継続プレイ", (168, 73, 43), (252, 240, 232)),
+        }
+        for mode, rect in ((MODE_TEN, r_ten), (MODE_ENDLESS, r_end)):
+            cap, desc, accent, bg = modes[mode]
+            active = game.mode == mode
+            fill = bg if active else (246, 242, 234)
+            if rect.collidepoint(self._mouse_pos):
+                fill = tuple(max(0, c - 10) for c in fill)
+            pygame.draw.rect(surface, fill, rect, border_radius=22)
+            pygame.draw.rect(surface, accent if active else (198, 190, 174), rect,
+                             width=3 if active else 2, border_radius=22)
+            pygame.draw.rect(surface, accent, (rect.x + 16, rect.y + 16, 10, rect.h - 32), border_radius=5)
+            surface.blit(fb.render(cap, True, (28, 32, 36)), (rect.x + 42, rect.y + 18))
+            surface.blit(fm.render(desc, True, (96, 101, 106)), (rect.x + 44, rect.y + 56))
+
+        sr = pygame.Rect(hero.x + 26, hero.bottom - 72, mw, 52)
+        self.menu_hitboxes["settings_continue"] = sr
+        sbg = (241, 163, 72)
+        if sr.collidepoint(self._mouse_pos):
+            sbg = (228, 152, 66)
+        pygame.draw.rect(surface, sbg, sr, border_radius=16)
+        st = fb.render("次へ進む" if not self.use_english_ui else "Continue", True, (255, 255, 255))
+        surface.blit(st, st.get_rect(center=sr.center))
+
+        # Side panel
+        spy = hero.bottom + 22 if compact else hero_top
+        sph = int(h * 0.40) if compact else int(h * 0.58)
+        sp = pygame.Rect(panel_x, spy, panel_w, sph)
+        pygame.draw.rect(surface, (255, 250, 240), sp, border_radius=26)
+        pygame.draw.rect(surface, (219, 210, 190), sp, width=2, border_radius=26)
+        pt = fs.render("QUICK SETTINGS", True, (75, 79, 84))
+        surface.blit(pt, (sp.x + 22, sp.y + 20))
+
+        cx = sp.x + 22
+        cw = sp.w - 44
+        ch = 74
+        cg = 18
+
+        def chip(rect, label, value, bg):
+            pygame.draw.rect(surface, bg, rect, border_radius=18)
+            pygame.draw.rect(surface, (214, 204, 183), rect, width=2, border_radius=18)
+            surface.blit(fm.render(label, True, (92, 97, 103)), (rect.x + 16, rect.y + 10))
+            surface.blit(fsm.render("クリックで変更", True, (120, 124, 129)),
+                         fsm.render("クリックで変更", True, (120, 124, 129)).get_rect(topright=(rect.right - 16, rect.y + 12)))
+            surface.blit(fcv.render(value, True, (32, 37, 42)), (rect.x + 16, rect.y + 38))
+
+        cp = pygame.Rect(cx, sp.y + 58, cw, ch)
+        cd = pygame.Rect(cx, cp.bottom + cg, cw, ch)
+        cm = pygame.Rect(cx, cd.bottom + cg, cw, ch)
+        self.menu_hitboxes["chip_diff_toggle"] = cd
+        self.menu_hitboxes["chip_mode_toggle"] = cm
+        chip(cp, "プレイヤー数", "1人", (239, 243, 246))
+        chip(cd, "難易度", game.difficulty, (242, 239, 231))
+        llm = "ONLINE / AI生成" if game.llm_mode == "ONLINE" else "OFFLINE / 内蔵問題"
+        chip(cm, "出題方式", llm, (234, 242, 236))
+
+    def _draw_config_select(self, surface, game, w, h):
+        left_x = max(36, int(w * 0.07))
+        cw = min(w - left_x * 2, 980)
+        card_x = (w - cw) // 2
         card_y = int(h * 0.16)
         card_h = int(h * 0.68)
 
-        title_font = self._font(46, bold=True)
-        section_font = self._font(18, bold=True)
-        chip_font = self._font(24, bold=True)
-        meta_font = self._font(18)
+        tf = self._font(46, True)
+        sf = self._font(18, True)
+        cf = self._font(24, True)
+        mf = self._font(18)
 
-        title = title_font.render("学年と教科を選択" if not self.use_english_ui else "Select Grade and Subject", True, (34, 38, 42))
+        title = tf.render("学年と教科を選択" if not self.use_english_ui else "Select Grade & Subject",
+                          True, (34, 38, 42))
         surface.blit(title, (card_x, int(h * 0.07)))
 
-        pygame.draw.rect(surface, (255, 252, 245), (card_x, card_y, card_w, card_h), border_radius=26)
-        pygame.draw.rect(surface, (214, 204, 183), (card_x, card_y, card_w, card_h), width=2, border_radius=26)
+        pygame.draw.rect(surface, (255, 252, 245), (card_x, card_y, cw, card_h), border_radius=26)
+        pygame.draw.rect(surface, (214, 204, 183), (card_x, card_y, cw, card_h), width=2, border_radius=26)
 
-        back_rect = pygame.Rect(card_x + card_w - 150, int(h * 0.07), 150, 46)
-        self.menu_hitboxes["back_mode"] = back_rect
-        pygame.draw.rect(surface, (230, 224, 210), back_rect, border_radius=16)
-        pygame.draw.rect(surface, (214, 204, 183), back_rect, width=2, border_radius=16)
-        back_surf = self._font(22, bold=True).render("戻る" if not self.use_english_ui else "Back", True, (34, 38, 42))
-        surface.blit(back_surf, back_surf.get_rect(center=back_rect.center))
+        br = pygame.Rect(card_x + cw - 150, int(h * 0.07), 150, 46)
+        self.menu_hitboxes["back_mode"] = br
+        pygame.draw.rect(surface, (230, 224, 210), br, border_radius=16)
+        pygame.draw.rect(surface, (214, 204, 183), br, width=2, border_radius=16)
+        bs = self._font(22, True).render("戻る" if not self.use_english_ui else "Back", True, (34, 38, 42))
+        surface.blit(bs, bs.get_rect(center=br.center))
 
-        section1 = section_font.render("GRADE", True, (165, 88, 42))
-        surface.blit(section1, (card_x + 26, card_y + 24))
+        s1 = sf.render("GRADE", True, (165, 88, 42))
+        surface.blit(s1, (card_x + 26, card_y + 24))
 
-        gap_x = 18
-        gap_y = 18
-        btn_w = int((card_w - 52 - gap_x * 2) / 3)
-        btn_h = 72
-        grade_area_x = card_x + 26
-        grade_area_y = card_y + 58
+        gx = 18; gy = 18
+        bw = int((cw - 52 - gx * 2) / 3)
+        bh = 72
+        gax = card_x + 26
+        gay = card_y + 58
         for i, g in enumerate([1, 2, 3, 4, 5, 6]):
-            x = grade_area_x + (i % 3) * (btn_w + gap_x)
-            y = grade_area_y + (i // 3) * (btn_h + gap_y)
-            r = pygame.Rect(x, y, btn_w, btn_h)
-            active = game.grade == g
-            bg = (34, 38, 42) if active else (248, 245, 238)
-            fg = (245, 248, 255) if active else (34, 38, 42)
+            x = gax + (i % 3) * (bw + gx)
+            y = gay + (i // 3) * (bh + gy)
+            r = pygame.Rect(x, y, bw, bh)
+            act = game.grade == g
+            bg = (34, 38, 42) if act else (248, 245, 238)
+            fg = (245, 248, 255) if act else (34, 38, 42)
             pygame.draw.rect(surface, bg, r, border_radius=18)
             pygame.draw.rect(surface, (214, 204, 183), r, width=2, border_radius=18)
-            lab = chip_font.render(f"{g}年生" if not self.use_english_ui else f"Grade {g}", True, fg)
+            lab = cf.render(f"{g}年生" if not self.use_english_ui else f"Grade {g}", True, fg)
             surface.blit(lab, lab.get_rect(center=r.center))
             self.menu_hitboxes[f"grade_{g}"] = r
 
-        section2 = section_font.render("SUBJECT", True, (165, 88, 42))
-        surface.blit(section2, (card_x + 26, card_y + int(card_h * 0.48)))
+        s2 = sf.render("SUBJECT", True, (165, 88, 42))
+        surface.blit(s2, (card_x + 26, card_y + int(card_h * 0.48)))
 
-        subj_gap = 18
-        subj_w = int((card_w - 52 - subj_gap * 2) / 3)
-        subj_h = 76
-        subject_area_y = card_y + int(card_h * 0.56)
+        sg = 18
+        sw = int((cw - 52 - sg * 2) / 3)
+        sh = 76
+        say = card_y + int(card_h * 0.56)
         for i, s in enumerate(SUBJECTS):
-            x = grade_area_x + i * (subj_w + subj_gap)
-            r = pygame.Rect(x, subject_area_y, subj_w, subj_h)
-            active = game.subject == s
-            bg = (34, 38, 42) if active else (248, 245, 238)
-            fg = (245, 248, 255) if active else (34, 38, 42)
+            x = gax + i * (sw + sg)
+            r = pygame.Rect(x, say, sw, sh)
+            act = game.subject == s
+            bg = (34, 38, 42) if act else (248, 245, 238)
+            fg = (245, 248, 255) if act else (34, 38, 42)
             pygame.draw.rect(surface, bg, r, border_radius=18)
             pygame.draw.rect(surface, (214, 204, 183), r, width=2, border_radius=18)
-            lab = chip_font.render(s, True, fg)
+            lab = cf.render(s, True, fg)
             surface.blit(lab, lab.get_rect(center=r.center))
             self.menu_hitboxes[f"subject_{s}"] = r
 
-        start_rect = pygame.Rect(card_x + 26, card_y + card_h - 58, card_w - 52, 54)
-        self.menu_hitboxes["start_game"] = start_rect
-        start_note = meta_font.render("選択した設定でゲームを開始", True, (120, 124, 129))
-        surface.blit(start_note, (start_rect.x, start_rect.y - 28))
-        pygame.draw.rect(surface, (241, 163, 72), start_rect, border_radius=18)
-        start_surf = self._font(34, bold=True).render("ゲーム開始" if not self.use_english_ui else "Start Game", True, (245, 248, 255))
-        surface.blit(start_surf, start_surf.get_rect(center=start_rect.center))
+        sr = pygame.Rect(card_x + 26, card_y + card_h - 58, cw - 52, 54)
+        self.menu_hitboxes["start_game"] = sr
+        note = mf.render("選択した設定でゲームを開始", True, (120, 124, 129))
+        surface.blit(note, (sr.x, sr.y - 28))
+        pygame.draw.rect(surface, (241, 163, 72), sr, border_radius=18)
+        ss = self._font(34, True).render("ゲーム開始" if not self.use_english_ui else "Start Game",
+                                         True, (245, 248, 255))
+        surface.blit(ss, ss.get_rect(center=sr.center))
+
+    # -----------------------------------------------------------------------
+    # Gameplay HUD (redesigned)
+    # -----------------------------------------------------------------------
 
     def _draw_play(self, surface: pygame.Surface, game: QuizGameState):
+        w, h = self.width, self.height
         t = self.theme
+        self._anim_t += 1.0 / 60.0  # approximate
+
+        # --- Preloading ---
         if game.game_state == STATE_PRELOADING:
-            card = pygame.Rect(self.width // 2 - 270, self.height // 2 - 110, 540, 220)
-            pygame.draw.rect(surface, (16, 20, 34, 230), card, border_radius=20)
-            pygame.draw.rect(surface, (70, 88, 128), card, width=2, border_radius=20)
-            loading = "Loading quizzes..." if self.use_english_ui else "問題を事前取得中..."
-            sub = "Please wait" if self.use_english_ui else "しばらくお待ちください"
-            self._draw_text(surface, self.font_h2, loading, card.x + 34, card.y + 34, t.white)
-            self._draw_text(surface, self.font_main, sub, card.x + 34, card.y + 88, (205, 216, 235))
-            self._draw_text(surface, self.font_small, game.status_text, card.x + 34, card.y + 140, (165, 182, 212))
+            self._draw_preloading(surface, game, w, h)
             return
 
+        # --- Question card (top center) ---
         q = game.question_text()
-        l, r = game.choices_text()
-        self._draw_text(surface, self.font_main, q, 32, 24, t.white)
-        self._draw_text(surface, self.font_main, l, 32, 72, (115, 190, 255))
-        self._draw_text(surface, self.font_main, r, 32, 108, (255, 172, 98))
-        self._draw_text(surface, self.font_small, game.status_text, 32, 146, (225, 230, 242))
+        if q:
+            card_w = min(int(w * 0.75), 840)
+            card_x = (w - card_w) // 2
+            card_y = 18
 
+            lines = _wrap_lines(q, self.font_main, card_w - 48)
+            line_h = self.font_main.get_height() + 4
+            card_h = max(70, 28 + len(lines) * line_h + 16)
+
+            card = pygame.Rect(card_x, card_y, card_w, card_h)
+            _rounded_rect(surface, t.card_bg, card, radius=18)
+            _rounded_rect(surface, t.card_border, card, radius=18, width=2)
+
+            # glowing accent line at top of card
+            accent_r = pygame.Rect(card_x + 20, card_y, card_w - 40, 3)
+            _rounded_rect(surface, (0, 200, 255, 180), accent_r, radius=2)
+
+            y = card_y + 18
+            for line in lines:
+                ts = self.font_main.render(line, True, t.white)
+                surface.blit(ts, ((w - ts.get_width()) // 2, y))
+                y += line_h
+
+        # --- Choice hints (below question card) ---
+        if game.current_quiz and game.game_state == STATE_PLAYING:
+            ltext, rtext = game.choices_text()
+            hint_y = card_y + card_h + 10 if q else 24
+            # Left hint
+            lf = self.font_small.render(ltext, True, (255, 150, 80))
+            surface.blit(lf, (32, hint_y))
+            # Right hint
+            rf = self.font_small.render(rtext, True, (100, 170, 255))
+            surface.blit(rf, rf.get_rect(topright=(w - 32, hint_y)))
+
+        # --- Score / Progress indicator (top right) ---
+        if game.game_state in (STATE_PLAYING, STATE_CORRECT):
+            if game.mode == MODE_TEN:
+                prog = f"{game.current_index + 1}/10"
+            else:
+                prog = f"Score: {game.score}"
+            score_font = self._font(22, True)
+            ss = score_font.render(prog, True, t.cyan)
+            sr = ss.get_rect(topright=(w - 24, 12))
+            bg_r = sr.inflate(20, 12)
+            _rounded_rect(surface, (10, 14, 26, 180), bg_r, radius=10)
+            surface.blit(ss, sr)
+
+        # --- Progress bar (10Q mode, bottom center) ---
+        if game.mode == MODE_TEN and game.game_state in (STATE_PLAYING, STATE_CORRECT):
+            bar_total_w = min(400, int(w * 0.5))
+            bar_h = 12
+            bar_x = (w - bar_total_w) // 2
+            bar_y = h - 42
+            # Background track
+            pygame.draw.rect(surface, (40, 50, 70),
+                             (bar_x, bar_y, bar_total_w, bar_h),
+                             border_radius=6)
+            # Fill
+            progress = game.current_index / 10.0
+            fill_w = max(0, int(bar_total_w * progress))
+            if fill_w > 0:
+                pygame.draw.rect(surface, t.cyan,
+                                 (bar_x, bar_y, fill_w, bar_h),
+                                 border_radius=6)
+            # Label
+            prog_text = f"{game.current_index}/10"
+            pt = self.font_small.render(prog_text, True, (180, 190, 210))
+            surface.blit(pt, pt.get_rect(center=(w // 2, bar_y + bar_h + 14)))
+
+        # --- Image display ---
         img_path = ""
         if game.current_quiz and getattr(game.current_quiz, "img", ""):
             img_path = str(game.current_quiz.img).strip()
@@ -399,51 +510,167 @@ class HudRenderer:
                 self._image_cache[img_path] = loaded
             img = self._image_cache.get(img_path)
             if img:
-                max_w = min(420, self.width - 64)
-                max_h = 240
-                scale = min(max_w / max(1, img.get_width()), max_h / max(1, img.get_height()), 1.0)
-                draw_img = pygame.transform.smoothscale(
-                    img,
-                    (max(1, int(img.get_width() * scale)), max(1, int(img.get_height() * scale))),
-                )
-                surface.blit(draw_img, (32, 182))
+                max_iw = min(380, w - 64)
+                max_ih = 220
+                sc = min(max_iw / max(1, img.get_width()), max_ih / max(1, img.get_height()), 1.0)
+                di = pygame.transform.smoothscale(
+                    img, (max(1, int(img.get_width() * sc)), max(1, int(img.get_height() * sc))))
+                ix = (w - di.get_width()) // 2
+                iy = 140
+                frame = di.get_rect(topleft=(ix, iy)).inflate(12, 12)
+                _rounded_rect(surface, (10, 14, 26, 180), frame, radius=12)
+                surface.blit(di, (ix, iy))
 
-        help_text = "Move: A/D or arrows | Quit: Esc" if self.use_english_ui else "移動: A/D or ←/→ | 終了: Esc"
-        self._draw_text(surface, self.font_small, help_text, 32, self.height - 42, (210, 214, 223))
+        # Controls hint removed per user spec
 
-        if game.game_state in (STATE_CORRECT, STATE_GAME_OVER, STATE_CLEAR):
-            msg_color = t.green if game.game_state == STATE_CORRECT else (t.gold if game.game_state == STATE_CLEAR else t.red)
-            self._draw_text(surface, self.font_h2, game.message_text, 32, self.height - 180, msg_color)
+        # --- Status bar ---
+        if game.status_text and game.game_state == STATE_PLAYING:
+            st = self.font_small.render(game.status_text, True, (90, 100, 130))
+            surface.blit(st, st.get_rect(bottomright=(w - 24, h - 8)))
+
+        # --- Correct flash ---
+        if game.game_state == STATE_CORRECT:
+            txt = "正解！" if not self.use_english_ui else "Correct!"
+            big = self._font(56, True)
+            ts = big.render(txt, True, t.green)
+            tr = ts.get_rect(center=(w // 2, h // 2))
+            # glow background
+            gbg = tr.inflate(60, 30)
+            _rounded_rect(surface, (10, 40, 20, 160), gbg, radius=20)
+            surface.blit(ts, tr)
+
+        # --- Game Over / Clear overlay ---
         if game.game_state in (STATE_GAME_OVER, STATE_CLEAR):
-            good_rect = pygame.Rect(self.width - 560, self.height - 70, 120, 46)
-            bad_rect = pygame.Rect(self.width - 430, self.height - 70, 120, 46)
-            back_rect = pygame.Rect(self.width - 280, self.height - 70, 240, 46)
-            self.menu_hitboxes["rate_good"] = good_rect
-            self.menu_hitboxes["rate_bad"] = bad_rect
-            self.menu_hitboxes["back_to_menu"] = back_rect
-            good_hover = good_rect.collidepoint(self._mouse_pos)
-            bad_hover = bad_rect.collidepoint(self._mouse_pos)
-            hover = back_rect.collidepoint(self._mouse_pos)
-            good_bg = (238, 207, 120) if not good_hover else (224, 191, 100)
-            bad_bg = (206, 215, 232) if not bad_hover else (189, 199, 219)
-            pygame.draw.rect(surface, good_bg, good_rect, border_radius=14)
-            pygame.draw.rect(surface, bad_bg, bad_rect, border_radius=14)
-            pygame.draw.rect(surface, (214, 204, 183), good_rect, width=2, border_radius=14)
-            pygame.draw.rect(surface, (214, 204, 183), bad_rect, width=2, border_radius=14)
-            bg = (230, 224, 210) if not hover else (216, 208, 193)
-            pygame.draw.rect(surface, bg, back_rect, border_radius=14)
-            pygame.draw.rect(surface, (214, 204, 183), back_rect, width=2, border_radius=14)
-            good_text = "Good" if self.use_english_ui else "良い"
-            bad_text = "Bad" if self.use_english_ui else "悪い"
-            gsurf = self.font_main.render(good_text, True, t.fg_dark)
-            bsurf = self.font_main.render(bad_text, True, t.fg_dark)
-            surface.blit(gsurf, gsurf.get_rect(center=good_rect.center))
-            surface.blit(bsurf, bsurf.get_rect(center=bad_rect.center))
-            text = "Back to Menu" if self.use_english_ui else "メニューに戻る"
-            surf = self.font_main.render(text, True, t.fg_dark)
-            surface.blit(surf, surf.get_rect(center=back_rect.center))
-            if game.rating_feedback:
-                self._draw_text(surface, self.font_small, game.rating_feedback, self.width - 560, self.height - 108, (230, 235, 244))
+            self._draw_result_overlay(surface, game, w, h)
+
+    # -----------------------------------------------------------------------
+    # Result overlay (Game Over / Clear)
+    # -----------------------------------------------------------------------
+
+    def _draw_result_overlay(self, surface, game, w, h):
+        t = self.theme
+        # full-screen dim
+        overlay = pygame.Surface((w, h), pygame.SRCALPHA)
+        overlay.fill(t.overlay_bg)
+        surface.blit(overlay, (0, 0))
+
+        is_clear = game.game_state == STATE_CLEAR
+        col = t.gold if is_clear else t.red
+
+        # Title
+        big = self._font(52, True)
+        title_text = "CLEAR!" if is_clear else "GAME OVER"
+        ts = big.render(title_text, True, col)
+        surface.blit(ts, ts.get_rect(center=(w // 2, int(h * 0.18))))
+
+        # Message panel
+        panel_w = min(int(w * 0.8), 700)
+        panel_x = (w - panel_w) // 2
+        panel_y = int(h * 0.28)
+
+        msg_lines = game.message_text.split("\n")
+        line_h = self.font_main.get_height() + 6
+        panel_h = max(100, 30 + len(msg_lines) * line_h + 20)
+
+        panel = pygame.Rect(panel_x, panel_y, panel_w, panel_h)
+        _rounded_rect(surface, (16, 20, 36, 220), panel, radius=18)
+        _rounded_rect(surface, (80, 90, 130), panel, radius=18, width=2)
+
+        y = panel_y + 20
+        for line in msg_lines:
+            if not line.strip():
+                y += 8
+                continue
+            ts = self.font_main.render(line, True, t.white)
+            surface.blit(ts, (panel_x + 28, y))
+            y += line_h
+
+        # Rating buttons
+        btn_y = panel.bottom + 30
+        if game.rating_target_quiz and not game.rating_feedback:
+            q_text = game.rating_target_quiz.q or ""
+            if len(q_text) > 35:
+                q_text = q_text[:35] + "..."
+            ql = self.font_small.render(
+                f"この問題: {q_text}" if not self.use_english_ui else f"Rate this Q: {q_text}",
+                True, (180, 190, 210))
+            surface.blit(ql, ql.get_rect(center=(w // 2, btn_y)))
+            btn_y += 36
+
+            gw, gh = 140, 48
+            gr = pygame.Rect(w // 2 - gw - 12, btn_y, gw, gh)
+            br = pygame.Rect(w // 2 + 12, btn_y, gw, gh)
+            self.menu_hitboxes["rate_good"] = gr
+            self.menu_hitboxes["rate_bad"] = br
+
+            g_hover = gr.collidepoint(self._mouse_pos)
+            b_hover = br.collidepoint(self._mouse_pos)
+            g_bg = (60, 180, 80) if g_hover else (50, 160, 70)
+            b_bg = (200, 60, 60) if b_hover else (180, 50, 50)
+            pygame.draw.rect(surface, g_bg, gr, border_radius=14)
+            pygame.draw.rect(surface, b_bg, br, border_radius=14)
+            gt = self.font_main.render("◯ 良い" if not self.use_english_ui else "Good", True, t.white)
+            bt = self.font_main.render("× 悪い" if not self.use_english_ui else "Bad", True, t.white)
+            surface.blit(gt, gt.get_rect(center=gr.center))
+            surface.blit(bt, bt.get_rect(center=br.center))
+            btn_y += gh + 24
+        elif game.rating_feedback:
+            fb = self.font_main.render(game.rating_feedback, True, t.green)
+            surface.blit(fb, fb.get_rect(center=(w // 2, btn_y + 10)))
+            btn_y += 52
+
+        # Back to menu button
+        menu_btn = pygame.Rect(w // 2 - 150, btn_y, 300, 56)
+        self.menu_hitboxes["back_to_menu"] = menu_btn
+        m_hover = menu_btn.collidepoint(self._mouse_pos)
+        mbg = (60, 70, 100) if m_hover else (45, 55, 85)
+        pygame.draw.rect(surface, mbg, menu_btn, border_radius=16)
+        pygame.draw.rect(surface, (100, 120, 170), menu_btn, width=2, border_radius=16)
+        mt = self.font_main.render("メニューに戻る" if not self.use_english_ui else "Back to Menu",
+                                   True, t.white)
+        surface.blit(mt, mt.get_rect(center=menu_btn.center))
+
+    # -----------------------------------------------------------------------
+    # Preloading screen
+    # -----------------------------------------------------------------------
+
+    def _draw_preloading(self, surface, game, w, h):
+        t = self.theme
+        card_w = min(560, int(w * 0.7))
+        card_h = 200
+        card = pygame.Rect((w - card_w) // 2, (h - card_h) // 2, card_w, card_h)
+        _rounded_rect(surface, (12, 16, 30, 230), card, radius=22)
+        _rounded_rect(surface, (60, 80, 130), card, radius=22, width=2)
+
+        # Animated dots
+        dots = "." * (int(self._anim_t * 2) % 4)
+        loading = "問題を準備中" + dots if not self.use_english_ui else "Loading quizzes" + dots
+        ls = self.font_h2.render(loading, True, t.white)
+        surface.blit(ls, ls.get_rect(center=(w // 2, card.y + 50)))
+
+        sub = "しばらくお待ちください" if not self.use_english_ui else "Please wait"
+        ss = self.font_small.render(sub, True, (160, 175, 210))
+        surface.blit(ss, ss.get_rect(center=(w // 2, card.y + 95)))
+
+        # Progress bar
+        bar_w = card_w - 80
+        bar_h = 14
+        bar_x = card.x + 40
+        bar_y = card.y + 130
+        pygame.draw.rect(surface, (30, 38, 60), (bar_x, bar_y, bar_w, bar_h), border_radius=7)
+
+        # Animated shimmer
+        progress = min(0.95, self._anim_t / 5.0)  # rough estimate
+        fill_w = max(4, int(bar_w * progress))
+        pygame.draw.rect(surface, (0, 180, 240), (bar_x, bar_y, fill_w, bar_h), border_radius=7)
+
+        # Status line
+        st = self.font_small.render(game.status_text, True, (120, 135, 170))
+        surface.blit(st, st.get_rect(center=(w // 2, card.y + 165)))
+
+    # -----------------------------------------------------------------------
+    # Main render
+    # -----------------------------------------------------------------------
 
     def render(self, game: QuizGameState) -> pygame.Surface:
         surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)

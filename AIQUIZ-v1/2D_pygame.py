@@ -1595,6 +1595,7 @@ def fetch_quiz_from_gemini(grade, subject, difficulty, history, prefer_image_qui
         r = gemini_model.generate_content(
             _base_prompt(grade, subject, difficulty, history, prefer_image_quiz=prefer_image_quiz, batch_count=batch_count),
             generation_config={"temperature": LLM_TEMPERATURE},
+            request_options={"timeout": 30.0}
         )
         raw = r.text
         parsed = _extract_quiz_list_from_llm_text(raw, "Gemini")
@@ -1826,63 +1827,6 @@ def _is_same_subgenre_streak_for_pid(pid, q_text, subject, grade):
             break
         prev = item.get("q", "")
         prev_genre = infer_prev(prev)
-        if prev_genre == candidate:
-            streak += 1
-            if streak >= MAX_SAME_GENRE_STREAK_IN_BUFFER:
-                return True
-        else:
-            break
-    return False
-
-    try:
-        g_int = int(grade)
-    except Exception:
-        g_int = 0
-
-    if subject == "国語" and g_int >= 5:
-        candidate = _infer_subgenre(subject, grade, q_text)
-        if candidate in ("other", "jp_other"):
-            return False
-        infer_prev = lambda prev_q: _infer_subgenre(subject, grade, prev_q)
-    else:
-        candidate = _infer_generic_topic_key(q_text)
-        if candidate == "other":
-            return False
-        infer_prev = _infer_generic_topic_key
-
-    pending = list(quiz_buffers.get(pid, []))
-    if not pending:
-        return False
-
-    streak = 0
-    for item in reversed(pending):
-        if not isinstance(item, dict):
-            break
-        prev = item.get("q", "")
-        prev_genre = infer_prev(prev)
-        if prev_genre == candidate:
-            streak += 1
-            if streak >= MAX_SAME_GENRE_STREAK_IN_BUFFER:
-                return True
-        else:
-            break
-    return False
-    if subject != "国語" or int(grade) < 5:
-        return False
-    candidate = _infer_subgenre(subject, grade, q_text)
-    if candidate in ("other", "jp_other"):
-        return False
-
-    pending = list(quiz_buffers.get(pid, []))
-    if not pending:
-        return False
-
-    streak = 0
-    for item in reversed(pending):
-        if not isinstance(item, dict):
-            break
-        prev = item.get("q", "")
-        prev_genre = _infer_subgenre(subject, grade, prev)
         if prev_genre == candidate:
             streak += 1
             if streak >= MAX_SAME_GENRE_STREAK_IN_BUFFER:
@@ -2239,6 +2183,9 @@ def api_worker(worker_id):
                     append_generation_source_log(target_pid, accepted_q, subject, grade, diff)
             else:
                 time.sleep(1 if LLM_MODE=="ONLINE" else 0.05)
+        except Exception as e:
+            print(f"[API Worker Error] {e}")
+            time.sleep(1.0)
         finally:
             if reserved_slot:
                 with buffer_lock:
@@ -2283,7 +2230,9 @@ class Player:
         self.quiz_image_rect = None
         self.choice_image_surfs = [None, None]
         self.choice_image_rects = [None, None]
-        self.wall_speed_ratio = base_wall_speed
+        # 既存の速度比がある場合は維持し、なければデフォルト値を設定
+        if not hasattr(self, "wall_speed_ratio") or self.wall_speed_ratio == 0:
+            self.wall_speed_ratio = base_wall_speed
 
     def _layout_choice_content(self):
         for idx, (door, text_surf) in enumerate(((self.door1, self.c1_surf), (self.door2, self.c2_surf))):
@@ -2326,7 +2275,10 @@ class Player:
             grade = conf.get("subject_grades", {}).get(subj, conf.get("grade", 3))
             requested_diff = conf.get("difficulties", {}).get(subj, "普通")
             diff = _effective_difficulty(subj, grade, requested_diff)
+        
+        # 速度計算（リサイズ時は既に正しい値が入っている可能性があるが再計算して整合性を保つ）
         self.wall_speed_ratio = _compute_wall_speed_ratio_for_quiz(self.current_quiz, diff)
+        
         qlen = len(q_text)
         
         fsize = QUESTION_FONT_SIZE
@@ -2351,6 +2303,7 @@ class Player:
             self.q_rect = self.q_surf.get_rect(midtop=(v.centerx, self.quiz_image_rect.bottom + 18))
         else:
             self.q_rect = self.q_surf.get_rect(center=(v.centerx, v.top + int(v.h * 0.08)))
+        
         choice_refs = _get_choice_image_refs(self.current_quiz)
         self.choice_image_surfs = [None, None]
         self.choice_image_rects = [None, None]
@@ -2369,6 +2322,19 @@ class Player:
         self.c1_surf = render_text_wrapped(self.current_quiz["c"][0], self.door1.w * 0.86, choice_font_size)
         self.c2_surf = render_text_wrapped(self.current_quiz["c"][1], self.door2.w * 0.86, choice_font_size)
         self._layout_choice_content()
+
+    def adjust_difficulty(self, is_correct):
+        conf = PLAYER_CONFIGS[self.pid]
+        subj = conf["subject"]
+        current_diff = conf["difficulties"].get(subj, "普通")
+        idx = DIFFICULTY_LEVELS.index(current_diff)
+        
+        if is_correct:
+            if idx < len(DIFFICULTY_LEVELS) - 1:
+                conf["difficulties"][subj] = DIFFICULTY_LEVELS[idx + 1]
+        else:
+            if idx > 0:
+                conf["difficulties"][subj] = DIFFICULTY_LEVELS[idx - 1]
 
     def set_new_question(self):
         if g_game_mode == "TEN_QUESTIONS" and not self.in_assessment:
