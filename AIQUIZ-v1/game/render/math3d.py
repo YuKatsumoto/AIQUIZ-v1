@@ -50,5 +50,35 @@ def scale(v: tuple[float, float, float]) -> np.ndarray:
     return m
 
 
+def rotate_x(angle_rad: float) -> np.ndarray:
+    m = np.identity(4, dtype=np.float32)
+    c, s = math.cos(angle_rad), math.sin(angle_rad)
+    m[1, 1] = c
+    m[1, 2] = -s
+    m[2, 1] = s
+    m[2, 2] = c
+    return m
+
+
+def rotate_y(angle_rad: float) -> np.ndarray:
+    m = np.identity(4, dtype=np.float32)
+    c, s = math.cos(angle_rad), math.sin(angle_rad)
+    m[0, 0] = c
+    m[0, 2] = s
+    m[2, 0] = -s
+    m[2, 2] = c
+    return m
+
+
+def rotate_z(angle_rad: float) -> np.ndarray:
+    m = np.identity(4, dtype=np.float32)
+    c, s = math.cos(angle_rad), math.sin(angle_rad)
+    m[0, 0] = c
+    m[0, 1] = -s
+    m[1, 0] = s
+    m[1, 1] = c
+    return m
+
+
 def mat4_mul(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return (a @ b).astype(np.float32)

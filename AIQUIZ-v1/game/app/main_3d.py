@@ -2,15 +2,24 @@ import os
 import sys
 from pathlib import Path
 
+try:
+    from dotenv import load_dotenv
+    # `game/app/main_3d.py` -> `game/app` -> `game` -> `AIQUIZ-v1` -> `.../.env`
+    # Let dotenv find the .env naturally
+    load_dotenv(override=True)
+except ImportError:
+    pass
+
 import pygame
 
-from game.core.constants import STATE_PLAYING
+from game.core.constants import STATE_PLAYING, STATE_CORRECT, STATE_GAME_OVER
 from game.core.game_state import QuizGameState
 from game.core.quiz_provider import OfflineQuizProvider
 from game.core.providers.buffered_provider import BufferedQuizProvider
 from game.core.ratings.ratings_service import RatingsService
 from game.render.renderer import Renderer3D
 from game.ui.hud import HudRenderer
+from game.audio.synth import generate_correct_sound, generate_explosion_sound
 
 
 def _resolve_bank_path() -> str:
@@ -19,6 +28,10 @@ def _resolve_bank_path() -> str:
 
 
 def run():
+    try:
+        pygame.mixer.init()
+    except Exception as e:
+        print(f"Warning: Pygame mixer init failed: {e}. Sound will be disabled.")
     pygame.init()
     pygame.font.init()
 
@@ -49,8 +62,12 @@ def run():
         num_workers=2,
         ratings_service=ratings_service,
     )
-    provider.set_llm_mode(os.getenv("LLM_MODE", "OFFLINE"))
+    provider.set_llm_mode(os.getenv("LLM_MODE", "ONLINE"))
     game = QuizGameState(provider=provider, use_english_ui=hud.use_english_ui)
+
+    # Prepare sounds
+    snd_correct = generate_correct_sound()
+    snd_wrong = generate_explosion_sound()
 
     clock = pygame.time.Clock()
     running = True
@@ -97,14 +114,37 @@ def run():
 
         keys = pygame.key.get_pressed()
         move_axis = 0.0
+        move_axis_p2 = 0.0
         if game.game_state == STATE_PLAYING:
-            if keys[pygame.K_a] or keys[pygame.K_LEFT]:
-                move_axis -= 1.0
-            if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
+            # Player 1: A/D (always)
+            if keys[pygame.K_a]:
                 move_axis += 1.0
+            if keys[pygame.K_d]:
+                move_axis -= 1.0
+            if game.num_players >= 2:
+                # 2P: Arrow keys control Player 2
+                if keys[pygame.K_LEFT]:
+                    move_axis_p2 += 1.0
+                if keys[pygame.K_RIGHT]:
+                    move_axis_p2 -= 1.0
+            else:
+                # 1P: Arrow keys also control Player 1
+                if keys[pygame.K_LEFT]:
+                    move_axis += 1.0
+                if keys[pygame.K_RIGHT]:
+                    move_axis -= 1.0
 
         while accumulator >= fixed_dt:
-            game.update(fixed_dt, move_axis)
+            prev_state = game.game_state
+            game.update(fixed_dt, move_axis, move_axis_p2)
+            
+            # Trigger sounds on state transition
+            if prev_state != game.game_state:
+                if game.game_state == STATE_CORRECT and snd_correct:
+                    snd_correct.play()
+                elif game.game_state == STATE_GAME_OVER and snd_wrong:
+                    snd_wrong.play()
+                    
             accumulator -= fixed_dt
 
         hud.set_mouse_pos(pygame.mouse.get_pos())

@@ -27,10 +27,17 @@ class GameTuning:
     min_x: float = -4.9
     max_x: float = 4.9
     wall_start_z: float = 22.0
-    wall_speed: float = 6.8
-    door_half_width: float = 1.35
-    left_door_x: float = -2.35
-    right_door_x: float = 2.35
+    wall_speed: float = 6.8          # base speed (overridden dynamically)
+    wall_speed_min: float = 3.0      # minimum speed (very long questions)
+    wall_speed_max: float = 9.0      # maximum speed (after fast streaks)
+    wall_spacing: float = 30.0
+    door_half_width: float = 0.9
+    # 2-choice door positions
+    left_door_x: float = 2.8
+    right_door_x: float = -2.8
+    # 4-choice door positions (spread across corridor with gaps)
+    door4_xs: tuple = (-4.2, -1.4, 1.4, 4.2)
+    door4_half_width: float = 0.65
     hit_z: float = -6.0
     correct_hold_sec: float = 1.05
 
@@ -48,6 +55,7 @@ class QuizGameState:
     llm_mode: str = "OFFLINE"
     menu_step: str = MENU_STEP_MODE
 
+    # --- Player 1 ---
     score: int = 0
     current_index: int = 0
     quiz_list: List[QuizItem] = field(default_factory=list)
@@ -58,10 +66,13 @@ class QuizGameState:
     message_timer: float = 0.0
 
     player_x: float = 0.0
-    wall_z: float = 22.0
+    player_z: float = 0.0
+    current_wall_index: int = 0
 
     message_text: str = ""
     status_text: str = ""
+    game_over_timer: float = 0.0
+    game_over_base_msg: str = ""
 
     correct_flash: float = 0.0
     wrong_flash: float = 0.0
@@ -73,8 +84,34 @@ class QuizGameState:
     rating_target_quiz: Optional[QuizItem] = None
     rating_feedback: str = ""
 
+    # --- Multiplayer ---
+    num_players: int = 1
+    p1_alive: bool = True
+    # Player 2 state
+    player2_x: float = 0.0
+    player2_score: int = 0
+    p2_alive: bool = True
+    player2_game_over_timer: float = 0.0
+
+    # --- Dynamic wall speed ---
+    _active_wall_speed: float = 6.8
+
+    @property
+    def num_choices(self) -> int:
+        """Return 4 for hard difficulty, 2 otherwise. Falls back to actual quiz choice count."""
+        if self.difficulty == "難しい":
+            # If current quiz only has 2 choices (offline bank), use 2
+            if self.current_quiz and len(self.current_quiz.c) < 4:
+                return len(self.current_quiz.c)
+            return 4
+        return 2
+
+    @property
+    def wall_z(self) -> float:
+        """Z position of the current target wall."""
+        return self.tuning.wall_start_z + self.current_wall_index * self.tuning.wall_spacing
+
     def __post_init__(self):
-        self.wall_z = self.tuning.wall_start_z
         self.refresh_status_text()
 
     def menu_input(self, key: str) -> bool:
@@ -108,6 +145,18 @@ class QuizGameState:
     def start_game(self):
         self.score = 0
         self.current_index = 0
+        self.player_x = -1.5 if self.num_players == 2 else 0.0
+        self.player_z = 0.0
+        self.current_wall_index = 0
+        self.game_over_timer = 0.0
+        self.p1_alive = True
+        # Player 2 reset
+        self.player2_x = 1.5
+        self.player2_score = 0
+        self.p2_alive = True
+        self.player2_game_over_timer = 0.0
+        # Dynamic wall speed reset
+        self._active_wall_speed = self.tuning.wall_speed
         count = 10 if self.mode == MODE_TEN else 1
         self.target_count = count
         if hasattr(self.provider, "set_llm_mode"):
@@ -157,14 +206,23 @@ class QuizGameState:
         self.refresh_status_text()
 
     def reset_to_menu(self):
+        if hasattr(self.provider, "end_round"):
+            self.provider.end_round()
         self.game_state = STATE_MENU
         self.menu_step = MENU_STEP_MODE
         self.player_x = 0.0
-        self.wall_z = self.tuning.wall_start_z
+        self.player_z = 0.0
+        self.current_wall_index = 0
         self.message_text = ""
         self.correct_flash = 0.0
         self.wrong_flash = 0.0
         self.camera_shake = 0.0
+        self.game_over_timer = 0.0
+        self.p1_alive = True
+        self.player2_x = 0.0
+        self.player2_score = 0
+        self.p2_alive = True
+        self.player2_game_over_timer = 0.0
         self.rating_target_quiz = None
         self.rating_feedback = ""
         self.refresh_status_text()
@@ -184,15 +242,45 @@ class QuizGameState:
                     mode=MODE_ENDLESS,
                     count=1,
                 )
+            # Guard: if buffer is still empty, transition to PRELOADING
+            if not self.quiz_list:
+                self.game_state = STATE_PRELOADING
+                self.preload_wait_sec = 0.0
+                self.message_text = "Loading quizzes..." if self.use_english_ui else "次の問題を準備中..."
+                self.refresh_status_text()
+                return
             self.current_quiz = self.quiz_list[0]
 
+        # Start explanation fetch if it's an online question lacking an explanation
+        if self.current_quiz and self.current_quiz.src != "OFFLINE" and not self.current_quiz.e:
+            if hasattr(self.provider, "fetch_explanation_async"):
+                self.provider.fetch_explanation_async(self.current_quiz)
+
         self.choice_locked = False
-        self.wall_z = self.tuning.wall_start_z
-        self.player_x = 0.0
         self.message_text = ""
+        self._recalc_wall_speed()
         self.refresh_status_text()
 
-    def update(self, dt: float, move_axis: float):
+    def _recalc_wall_speed(self):
+        """Set wall speed based on question text length."""
+        t = self.tuning
+        base = t.wall_speed  # 6.8
+
+        # Question text length factor
+        q_text = ""
+        if self.current_quiz:
+            q_text = self.current_quiz.q or ""
+            if self.current_quiz.c:
+                q_text += "".join(self.current_quiz.c)
+        text_len = len(q_text)
+        # Short (<20 chars): no slowdown, Long (>80 chars): significant slowdown
+        # Mapping: 20 chars → factor 1.0, 120 chars → factor 0.55
+        length_factor = max(0.55, min(1.0, 1.0 - (text_len - 20) * 0.0045))
+
+        final_speed = base * length_factor
+        self._active_wall_speed = max(t.wall_speed_min, min(t.wall_speed_max, final_speed))
+
+    def update(self, dt: float, move_axis: float, move_axis_p2: float = 0.0):
         self.correct_flash = max(0.0, self.correct_flash - dt * 1.5)
         self.wrong_flash = max(0.0, self.wrong_flash - dt * 1.2)
         self.camera_shake = max(0.0, self.camera_shake - dt * 2.8)
@@ -219,66 +307,160 @@ class QuizGameState:
             if ready and self.preload_wait_sec >= self.min_preload_sec:
                 self.game_state = STATE_PLAYING
                 self.load_current_quiz()
+            elif not ready and self.preload_wait_sec >= 6.0 and len(self.quiz_list) > 0:
+                # Avoid infinite deadlock if bank has too few unique questions
+                if self.mode == MODE_TEN:
+                    self.target_count = len(self.quiz_list)
+                self.game_state = STATE_PLAYING
+                self.load_current_quiz()
             else:
                 self.message_text = "Loading quizzes..." if self.use_english_ui else "クイズを準備中..."
                 self.refresh_status_text()
             return
 
         if self.game_state == STATE_PLAYING:
-            self.player_x += move_axis * self.tuning.player_speed * dt
-            self.player_x = max(self.tuning.min_x, min(self.tuning.max_x, self.player_x))
-            self.wall_z -= self.tuning.wall_speed * dt
-            if self.wall_z <= self.tuning.hit_z + 0.45:
+            # Player 1 movement (if alive)
+            if self.p1_alive:
+                self.player_x += move_axis * self.tuning.player_speed * dt
+                self.player_x = max(self.tuning.min_x, min(self.tuning.max_x, self.player_x))
+            # Player 2 movement (if alive and 2-player mode)
+            if self.num_players >= 2 and self.p2_alive:
+                self.player2_x += move_axis_p2 * self.tuning.player_speed * dt
+                self.player2_x = max(self.tuning.min_x, min(self.tuning.max_x, self.player2_x))
+            # Use dynamic wall speed instead of fixed tuning value
+            self.player_z += self._active_wall_speed * dt
+            if self.player_z >= self.wall_z - 0.45:
                 self.resolve_collision()
             return
 
         if self.game_state == STATE_CORRECT:
+            # Stop moving forward while showing 'Correct!'
             self.message_timer -= dt
+            # Tick explosion timers for dead players (so explosion animates mid-game)
+            if not self.p1_alive and self.game_over_timer > 0:
+                self.game_over_timer += dt
+            if self.num_players >= 2 and not self.p2_alive and self.player2_game_over_timer > 0:
+                self.player2_game_over_timer += dt
             if self.message_timer <= 0:
                 self.advance_after_correct()
+            return
+
+        if self.game_state == STATE_GAME_OVER:
+            self.game_over_timer += dt
+            if self.num_players >= 2 and not self.p2_alive:
+                self.player2_game_over_timer += dt
+                
+            # Dynamically update the message_text to handle async explanation generation
+            if self.current_quiz:
+                explain = self.current_quiz.e or ("No explanation" if self.use_english_ui else "解説なし")
+                msg = f"{self.game_over_base_msg}\n{explain}"
+                if self.num_players >= 2:
+                    score_line = f"P1: {self.score}  P2: {self.player2_score}"
+                    self.message_text = "GAME OVER\n\n" + msg + f"\n\n{score_line}"
+                else:
+                    self.message_text = "GAME OVER\n\n" + msg
 
     def is_within_door(self, x_pos: float, side: int) -> bool:
+        if self.num_choices == 4:
+            cx = self.tuning.door4_xs[side]
+            return abs(x_pos - cx) <= self.tuning.door4_half_width
         center = self.tuning.left_door_x if side == 0 else self.tuning.right_door_x
         return abs(x_pos - center) <= self.tuning.door_half_width
+
+    def _check_player_door(self, px: float) -> int:
+        """Return door index (0..N-1), -1=wall, -2=ambiguous."""
+        nc = self.num_choices
+        hits = []
+        for i in range(nc):
+            if self.is_within_door(px, i):
+                hits.append(i)
+        if len(hits) == 0:
+            return -1
+        if len(hits) > 1:
+            return -2
+        return hits[0]
 
     def resolve_collision(self):
         if not self.current_quiz or self.choice_locked:
             return
         self.choice_locked = True
-
         answer = int(self.current_quiz.a)
-        in_left = self.is_within_door(self.player_x, 0)
-        in_right = self.is_within_door(self.player_x, 1)
 
-        if not in_left and not in_right:
-            self.game_over("Hit the wall!" if self.use_english_ui else "壁にぶつかった！")
-            return
-        if in_left and in_right:
-            self.game_over("Cannot decide!" if self.use_english_ui else "中央で判定不能！")
-            return
+        p1_correct = False
+        p2_correct = False
 
-        selected = 0 if in_left else 1
-        if selected == answer:
-            self.score += 1
-            self.recent_results.append(True)
-            if hasattr(self.provider, "submit_result"):
-                self.provider.submit_result(self.current_quiz, True)
+        # --- Player 1 ---
+        if self.p1_alive:
+            door = self._check_player_door(self.player_x)
+            if door < 0:  # wall or center
+                self.p1_alive = False
+                self.game_over_timer = 0.001  # start explosion
+            elif door == answer:
+                self.score += 1
+                p1_correct = True
+                self.recent_results.append(True)
+            else:
+                self.p1_alive = False
+                self.game_over_timer = 0.001
+                self.recent_results.append(False)
+
+        # --- Player 2 ---
+        if self.num_players >= 2 and self.p2_alive:
+            door2 = self._check_player_door(self.player2_x)
+            if door2 < 0:
+                self.p2_alive = False
+                self.player2_game_over_timer = 0.001
+            elif door2 == answer:
+                self.player2_score += 1
+                p2_correct = True
+            else:
+                self.p2_alive = False
+                self.player2_game_over_timer = 0.001
+
+        any_correct = p1_correct or p2_correct
+        any_alive = self.p1_alive or (self.num_players >= 2 and self.p2_alive)
+
+        if hasattr(self.provider, "submit_result"):
+            self.provider.submit_result(self.current_quiz, any_correct)
+
+        if not any_alive:
+            # Everyone dead → game over
+            explain = self.current_quiz.e or ("No explanation" if self.use_english_ui else "解説なし")
+            nc = self.num_choices
+            if nc == 4:
+                labels = ["A", "B", "C", "D"]
+                ans_label = labels[answer] if 0 <= answer < 4 else "?"
+            else:
+                ans_label = ("Left" if answer == 0 else "Right") if self.use_english_ui else ("左" if answer == 0 else "右")
+            if self.use_english_ui:
+                self.game_over(f"Wrong! Answer was {ans_label}")
+            else:
+                self.game_over(f"不正解！ 正解は {ans_label}")
+        elif any_correct:
             self.game_state = STATE_CORRECT
             self.message_timer = self.tuning.correct_hold_sec
             self.message_text = "Correct!" if self.use_english_ui else "正解！"
             self.correct_flash = 1.0
             self.camera_shake = 0.22
+            # Trigger explosion effects for dead players
+            if not self.p1_alive:
+                self.wrong_flash = 1.0
+            if self.num_players >= 2 and not self.p2_alive:
+                self.wrong_flash = 1.0
         else:
-            self.recent_results.append(False)
-            if hasattr(self.provider, "submit_result"):
-                self.provider.submit_result(self.current_quiz, False)
-            explain = self.current_quiz.e or ("No explanation" if self.use_english_ui else "解説なし")
-            if self.use_english_ui:
-                self.game_over(f"Wrong! Answer was {'Left' if answer == 0 else 'Right'}\n{explain}")
+            nc = self.num_choices
+            if nc == 4:
+                labels = ["A", "B", "C", "D"]
+                ans_label = labels[answer] if 0 <= answer < 4 else "?"
             else:
-                self.game_over(f"不正解！ 正解は {'左' if answer == 0 else '右'}\n{explain}")
+                ans_label = "左" if answer == 0 else "右"
+            self.game_over(f"不正解！ 正解は {ans_label}")
 
     def advance_after_correct(self):
+        self.current_wall_index += 1
+        # Clear explosion timers so dead player ghosts don't persist
+        self.game_over_timer = 0.0
+        self.player2_game_over_timer = 0.0
         if self.mode == MODE_TEN:
             self.current_index += 1
             self.load_current_quiz()
@@ -291,14 +473,25 @@ class QuizGameState:
                 count=1,
             )
             self.load_current_quiz()
-        self.game_state = STATE_PLAYING
-        self.message_text = ""
+        # Only transition to PLAYING if we successfully loaded a quiz;
+        # load_current_quiz may have transitioned to PRELOADING if buffer was empty.
+        if self.game_state != STATE_PRELOADING:
+            self.game_state = STATE_PLAYING
+            self.message_text = ""
 
     def game_over(self, msg: str):
         self.game_state = STATE_GAME_OVER
         self.rating_target_quiz = self.current_quiz
         self.rating_feedback = ""
-        self.message_text = "GAME OVER\n\n" + msg
+        self.game_over_base_msg = msg
+        explain = self.current_quiz.e if self.current_quiz else ("No explanation" if self.use_english_ui else "解説なし")
+        full_msg = f"{msg}\n{explain}"
+        # Show both scores in 2P mode
+        if self.num_players >= 2:
+            score_line = f"P1: {self.score}  P2: {self.player2_score}"
+            self.message_text = "GAME OVER\n\n" + full_msg + f"\n\n{score_line}"
+        else:
+            self.message_text = "GAME OVER\n\n" + full_msg
         self.wrong_flash = 1.0
         self.camera_shake = 0.35
         self.refresh_status_text()
@@ -307,10 +500,16 @@ class QuizGameState:
         self.game_state = STATE_CLEAR
         self.rating_target_quiz = self.current_quiz
         self.rating_feedback = ""
-        if self.use_english_ui:
-            self.message_text = f"CLEAR! Congrats\n10 questions done  Score: {self.score}/10"
+        if self.num_players >= 2:
+            if self.use_english_ui:
+                self.message_text = f"CLEAR! Congrats\n10 questions done\nP1 Score: {self.score}/10  P2 Score: {self.player2_score}/10"
+            else:
+                self.message_text = f"CLEAR! おめでとう\n10問完走\nP1 正解数: {self.score}/10  P2 正解数: {self.player2_score}/10"
         else:
-            self.message_text = f"CLEAR! おめでとう\n10問完走  正解数: {self.score}/10"
+            if self.use_english_ui:
+                self.message_text = f"CLEAR! Congrats\n10 questions done  Score: {self.score}/10"
+            else:
+                self.message_text = f"CLEAR! おめでとう\n10問完走  正解数: {self.score}/10"
         self.correct_flash = 1.0
         self.refresh_status_text()
 

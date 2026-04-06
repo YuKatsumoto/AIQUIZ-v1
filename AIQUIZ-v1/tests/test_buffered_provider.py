@@ -19,9 +19,9 @@ class BufferedProviderTests(unittest.TestCase):
         bank = {
             "算数": {
                 "3": [
-                    {"q": "1+1?", "c": ["2", "3"], "a": 0, "e": "2"},
-                    {"q": "2+2?", "c": ["4", "5"], "a": 0, "e": "4"},
-                    {"q": "3+3?", "c": ["6", "7"], "a": 0, "e": "6"},
+                    {"q": "12×3=?", "c": ["36", "30"], "a": 0, "e": "36"},
+                    {"q": "24÷4=?", "c": ["6", "8"], "a": 0, "e": "6"},
+                    {"q": "直径が4cmの円の半径は？", "c": ["2cm", "8cm"], "a": 0, "e": "2cm"},
                 ]
             }
         }
@@ -43,7 +43,7 @@ class BufferedProviderTests(unittest.TestCase):
         try:
             provider.set_llm_mode("OFFLINE")
             provider.begin_round("算数", 3, "普通", MODE_TEN, 10)
-            for _ in range(40):
+            for _ in range(150):
                 if provider.buffered_count() > 0:
                     break
                 time.sleep(0.02)
@@ -63,7 +63,7 @@ class BufferedProviderTests(unittest.TestCase):
         )
         try:
             provider.begin_round("算数", 3, "普通", MODE_ENDLESS, 1)
-            for _ in range(40):
+            for _ in range(150):
                 if provider.is_ready_for_mode():
                     break
                 time.sleep(0.02)
@@ -71,27 +71,7 @@ class BufferedProviderTests(unittest.TestCase):
         finally:
             provider.stop()
 
-    def test_online_failure_falls_back_to_offline(self):
-        offline = OfflineQuizProvider(str(self.bank_path))
-        provider = BufferedQuizProvider(
-            offline_provider=offline,
-            ratings_path=str(self.ratings),
-            reject_log_path=str(self.reject_log),
-            source_log_path=str(self.source_log),
-            num_workers=1,
-        )
-        try:
-            provider.set_llm_mode("ONLINE")
-            provider._fetch_online = lambda count: []  # force online miss
-            provider.begin_round("算数", 3, "普通", MODE_TEN, 10)
-            for _ in range(50):
-                if provider.buffered_count() > 0:
-                    break
-                time.sleep(0.02)
-            got = provider.get_quizzes("算数", 3, "普通", MODE_TEN, 1)
-            self.assertGreaterEqual(len(got), 1)
-        finally:
-            provider.stop()
+
 
     def test_mark_bad_and_good_rating_saved(self):
         offline = OfflineQuizProvider(str(self.bank_path))

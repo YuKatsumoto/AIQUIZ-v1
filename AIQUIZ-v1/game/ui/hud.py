@@ -168,6 +168,9 @@ class HudRenderer:
             if self.menu_hitboxes.get("chip_diff_toggle", pygame.Rect(0, 0, 0, 0)).collidepoint(pos):
                 game.cycle_difficulty(1)
                 return True
+            if self.menu_hitboxes.get("chip_player_toggle", pygame.Rect(0, 0, 0, 0)).collidepoint(pos):
+                game.num_players = 2 if game.num_players == 1 else 1
+                return True
             return False
         # CONFIG step
         if self.menu_hitboxes.get("start_game", pygame.Rect(0, 0, 0, 0)).collidepoint(pos):
@@ -328,9 +331,11 @@ class HudRenderer:
         cp = pygame.Rect(cx, sp.y + 58, cw, ch)
         cd = pygame.Rect(cx, cp.bottom + cg, cw, ch)
         cm = pygame.Rect(cx, cd.bottom + cg, cw, ch)
+        self.menu_hitboxes["chip_player_toggle"] = cp
         self.menu_hitboxes["chip_diff_toggle"] = cd
         self.menu_hitboxes["chip_mode_toggle"] = cm
-        chip(cp, "プレイヤー数", "1人", (239, 243, 246))
+        player_label = f"{game.num_players}人" if not self.use_english_ui else f"{game.num_players}P"
+        chip(cp, "プレイヤー数" if not self.use_english_ui else "Players", player_label, (239, 243, 246))
         chip(cd, "難易度", game.difficulty, (242, 239, 231))
         llm = "ONLINE / AI生成" if game.llm_mode == "ONLINE" else "OFFLINE / 内蔵問題"
         chip(cm, "出題方式", llm, (234, 242, 236))
@@ -473,6 +478,26 @@ class HudRenderer:
             _rounded_rect(surface, (10, 14, 26, 180), bg_r, radius=10)
             surface.blit(ss, sr)
 
+            # P1 / P2 score badges in 2P mode
+            if game.num_players >= 2:
+                p1_txt = f"P1: {game.score}"
+                p2_txt = f"P2: {game.player2_score}"
+                p1s = self.font_small.render(p1_txt, True, (255, 180, 80))
+                p2s = self.font_small.render(p2_txt, True, (80, 200, 255))
+                p1r = p1s.get_rect(topright=(w - 24, bg_r.bottom + 6))
+                p2r = p2s.get_rect(topright=(w - 24, p1r.bottom + 4))
+                p1bg = p1r.inflate(16, 8)
+                p2bg = p2r.inflate(16, 8)
+                _rounded_rect(surface, (10, 14, 26, 160), p1bg, radius=8)
+                _rounded_rect(surface, (10, 14, 26, 160), p2bg, radius=8)
+                # Cross out dead players
+                surface.blit(p1s, p1r)
+                surface.blit(p2s, p2r)
+                if not game.p1_alive:
+                    pygame.draw.line(surface, (255, 60, 60), p1bg.midleft, p1bg.midright, 2)
+                if not game.p2_alive:
+                    pygame.draw.line(surface, (255, 60, 60), p2bg.midleft, p2bg.midright, 2)
+
         # --- Progress bar (10Q mode, bottom center) ---
         if game.mode == MODE_TEN and game.game_state in (STATE_PLAYING, STATE_CORRECT):
             bar_total_w = min(400, int(w * 0.5))
@@ -540,19 +565,27 @@ class HudRenderer:
             surface.blit(ts, tr)
 
         # --- Game Over / Clear overlay ---
-        if game.game_state in (STATE_GAME_OVER, STATE_CLEAR):
-            self._draw_result_overlay(surface, game, w, h)
+        if game.game_state == STATE_CLEAR:
+            self._draw_result_overlay(surface, game, w, h, alpha=1.0)
+        elif game.game_state == STATE_GAME_OVER and game.game_over_timer > 1.0:
+            fade_alpha = min(1.0, (game.game_over_timer - 1.0) / 1.5)
+            self._draw_result_overlay(surface, game, w, h, alpha=fade_alpha)
 
     # -----------------------------------------------------------------------
     # Result overlay (Game Over / Clear)
     # -----------------------------------------------------------------------
 
-    def _draw_result_overlay(self, surface, game, w, h):
+    def _draw_result_overlay(self, surface, game, w, h, alpha: float = 1.0):
+        if alpha <= 0.0:
+            return
+            
+        ui_surf = pygame.Surface((w, h), pygame.SRCALPHA)
+            
         t = self.theme
         # full-screen dim
         overlay = pygame.Surface((w, h), pygame.SRCALPHA)
         overlay.fill(t.overlay_bg)
-        surface.blit(overlay, (0, 0))
+        ui_surf.blit(overlay, (0, 0))
 
         is_clear = game.game_state == STATE_CLEAR
         col = t.gold if is_clear else t.red
@@ -561,7 +594,7 @@ class HudRenderer:
         big = self._font(52, True)
         title_text = "CLEAR!" if is_clear else "GAME OVER"
         ts = big.render(title_text, True, col)
-        surface.blit(ts, ts.get_rect(center=(w // 2, int(h * 0.18))))
+        ui_surf.blit(ts, ts.get_rect(center=(w // 2, int(h * 0.18))))
 
         # Message panel
         panel_w = min(int(w * 0.8), 700)
@@ -573,8 +606,8 @@ class HudRenderer:
         panel_h = max(100, 30 + len(msg_lines) * line_h + 20)
 
         panel = pygame.Rect(panel_x, panel_y, panel_w, panel_h)
-        _rounded_rect(surface, (16, 20, 36, 220), panel, radius=18)
-        _rounded_rect(surface, (80, 90, 130), panel, radius=18, width=2)
+        _rounded_rect(ui_surf, (16, 20, 36, 220), panel, radius=18)
+        _rounded_rect(ui_surf, (80, 90, 130), panel, radius=18, width=2)
 
         y = panel_y + 20
         for line in msg_lines:
@@ -582,7 +615,7 @@ class HudRenderer:
                 y += 8
                 continue
             ts = self.font_main.render(line, True, t.white)
-            surface.blit(ts, (panel_x + 28, y))
+            ui_surf.blit(ts, (panel_x + 28, y))
             y += line_h
 
         # Rating buttons
@@ -594,7 +627,7 @@ class HudRenderer:
             ql = self.font_small.render(
                 f"この問題: {q_text}" if not self.use_english_ui else f"Rate this Q: {q_text}",
                 True, (180, 190, 210))
-            surface.blit(ql, ql.get_rect(center=(w // 2, btn_y)))
+            ui_surf.blit(ql, ql.get_rect(center=(w // 2, btn_y)))
             btn_y += 36
 
             gw, gh = 140, 48
@@ -607,16 +640,16 @@ class HudRenderer:
             b_hover = br.collidepoint(self._mouse_pos)
             g_bg = (60, 180, 80) if g_hover else (50, 160, 70)
             b_bg = (200, 60, 60) if b_hover else (180, 50, 50)
-            pygame.draw.rect(surface, g_bg, gr, border_radius=14)
-            pygame.draw.rect(surface, b_bg, br, border_radius=14)
+            pygame.draw.rect(ui_surf, g_bg, gr, border_radius=14)
+            pygame.draw.rect(ui_surf, b_bg, br, border_radius=14)
             gt = self.font_main.render("◯ 良い" if not self.use_english_ui else "Good", True, t.white)
             bt = self.font_main.render("× 悪い" if not self.use_english_ui else "Bad", True, t.white)
-            surface.blit(gt, gt.get_rect(center=gr.center))
-            surface.blit(bt, bt.get_rect(center=br.center))
+            ui_surf.blit(gt, gt.get_rect(center=gr.center))
+            ui_surf.blit(bt, bt.get_rect(center=br.center))
             btn_y += gh + 24
         elif game.rating_feedback:
             fb = self.font_main.render(game.rating_feedback, True, t.green)
-            surface.blit(fb, fb.get_rect(center=(w // 2, btn_y + 10)))
+            ui_surf.blit(fb, fb.get_rect(center=(w // 2, btn_y + 10)))
             btn_y += 52
 
         # Back to menu button
@@ -624,11 +657,15 @@ class HudRenderer:
         self.menu_hitboxes["back_to_menu"] = menu_btn
         m_hover = menu_btn.collidepoint(self._mouse_pos)
         mbg = (60, 70, 100) if m_hover else (45, 55, 85)
-        pygame.draw.rect(surface, mbg, menu_btn, border_radius=16)
-        pygame.draw.rect(surface, (100, 120, 170), menu_btn, width=2, border_radius=16)
+        pygame.draw.rect(ui_surf, mbg, menu_btn, border_radius=16)
+        pygame.draw.rect(ui_surf, (100, 120, 170), menu_btn, width=2, border_radius=16)
         mt = self.font_main.render("メニューに戻る" if not self.use_english_ui else "Back to Menu",
                                    True, t.white)
-        surface.blit(mt, mt.get_rect(center=menu_btn.center))
+        ui_surf.blit(mt, mt.get_rect(center=menu_btn.center))
+        
+        if alpha < 1.0:
+            ui_surf.set_alpha(int(alpha * 255))
+        surface.blit(ui_surf, (0, 0))
 
     # -----------------------------------------------------------------------
     # Preloading screen
@@ -659,13 +696,30 @@ class HudRenderer:
         bar_y = card.y + 130
         pygame.draw.rect(surface, (30, 38, 60), (bar_x, bar_y, bar_w, bar_h), border_radius=7)
 
-        # Animated shimmer
-        progress = min(0.95, self._anim_t / 5.0)  # rough estimate
-        fill_w = max(4, int(bar_w * progress))
+        # Progress calculation synced with quiz generation
+        target = game.target_count if game.mode == MODE_TEN else 1
+        current = len(game.quiz_list)
+        pct = current / max(1, target)
+        
+        # We can add a fake little continuous crawl so it doesn't look frozen, plus the actual loaded percentage
+        fake_anim = min(0.15, self._anim_t / 15.0)
+        progress = min(1.0, pct + (fake_anim if pct < 1.0 else 0.0))
+
+        # Smooth interpolation to avoid instant jumps
+        if not hasattr(self, "_smooth_prog"):
+            self._smooth_prog = 0.0
+        if game.game_state != STATE_PRELOADING:
+            self._smooth_prog = 0.0
+        self._smooth_prog += (progress - self._smooth_prog) * 0.1
+
+        fill_w = max(4, int(bar_w * self._smooth_prog))
         pygame.draw.rect(surface, (0, 180, 240), (bar_x, bar_y, fill_w, bar_h), border_radius=7)
 
-        # Status line
-        st = self.font_small.render(game.status_text, True, (120, 135, 170))
+        # Status line with actual count in TEN mode
+        status_txt = game.status_text
+        if game.mode == MODE_TEN:
+            status_txt = f"問題取得中... ({current}/{target})"
+        st = self.font_small.render(status_txt, True, (120, 135, 170))
         surface.blit(st, st.get_rect(center=(w // 2, card.y + 165)))
 
     # -----------------------------------------------------------------------

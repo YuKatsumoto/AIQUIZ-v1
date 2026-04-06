@@ -47,6 +47,7 @@ class BufferedQuizProvider:
         self.mode = MODE_TEN
         self.target_count = 10
         self.inflight = 0
+        self.yielded_count = 0
         self.llm_mode = "OFFLINE"
         self._last_online_attempt = 0.0
         self._ratings = self.ratings_service.load()
@@ -54,9 +55,11 @@ class BufferedQuizProvider:
         self._recent_results: Deque[bool] = deque(maxlen=12)
         self.play_history: Deque[str] = deque(maxlen=90)
         self.preload_started_at = time.time()
-        self.force_offline_fill_after_seconds = float(os.getenv("FORCE_OFFLINE_FILL_AFTER_SECONDS", "4.0"))
+        self.force_offline_fill_after_seconds = float(os.getenv("FORCE_OFFLINE_FILL_AFTER_SECONDS", "12.0"))
         self.online_fail_streak = 0
         self.online_backoff_until = 0.0
+        self.is_active_round = False
+        self._offline_empty_streak = 0  # track consecutive empty offline batches
 
         self._start_workers()
 
@@ -89,9 +92,15 @@ class BufferedQuizProvider:
         self._adaptive_relax = 0.0
         self.recent_questions.clear()
         self.play_history.clear()
+        self.is_active_round = True
         with self.buffer_lock:
             self.buffer.clear()
             self.inflight = 0
+            self.yielded_count = 0
+            self._offline_empty_streak = 0
+            
+    def end_round(self) -> None:
+        self.is_active_round = False
 
     def submit_result(self, quiz: Optional[QuizItem], correct: bool) -> None:
         self._recent_results.append(bool(correct))
@@ -117,11 +126,39 @@ class BufferedQuizProvider:
         self._ratings = self.ratings_service.load()
 
     def _target_buffer_size(self) -> int:
-        return 10 if self.mode == MODE_TEN else 4
+        return 10 if self.mode == MODE_TEN else 6
+
+    def fetch_explanation_async(self, quiz: QuizItem) -> None:
+        if quiz.e and quiz.e != "解説生成中...":
+            return
+        quiz.e = "解説生成中..."
+
+        def worker():
+            try:
+                from game.core.providers.online_fetch import fetch_explanation_gemini
+                explanation = fetch_explanation_gemini(self.subject, self.grade, quiz.q, quiz.c, quiz.a)
+                if explanation:
+                    quiz.e = explanation
+                else:
+                    quiz.e = "解説を取得できませんでした"
+            except Exception:
+                quiz.e = "解説の取得にごめんなさい失敗しました"
+
+        threading.Thread(target=worker, daemon=True).start()
 
     def _worker_should_fill(self) -> bool:
+        if not self.is_active_round:
+            return False
+            
         with self.buffer_lock:
             pending = len(self.buffer) + self.inflight
+            
+            if self.mode == MODE_TEN:
+                # Do not fetch more than needed for the current round to avoid CPU lag during gameplay
+                needed = max(0, self.target_count - self.yielded_count)
+                if pending >= needed:
+                    return False
+                    
         return pending < self._target_buffer_size()
 
     def _mark_inflight(self, delta: int) -> None:
@@ -137,16 +174,18 @@ class BufferedQuizProvider:
         with self.buffer_lock:
             while self.buffer and len(out) < count:
                 out.append(self.buffer.popleft())
+            self.yielded_count += len(out)
         return out
 
-    def _fetch_online(self, count: int) -> List[QuizItem]:
+    def _fetch_online(self, count: int) -> Optional[List[QuizItem]]:
         now = time.time()
         if now < self.online_backoff_until:
-            return []
+            return None
         if now - self._last_online_attempt < 0.25:
-            return []
+            return None
         self._last_online_attempt = now
         include_image = os.getenv("GEMINI_IMAGE_MODEL", "").strip() != ""
+        split_wait = float(os.getenv("LLM_SPLIT_WAIT_SECONDS_TEN", "1.0")) if self.mode == MODE_TEN else float(os.getenv("LLM_SPLIT_WAIT_SECONDS", "3.0"))
         results = fetch_quiz_from_online_llms_parallel(
             self.subject,
             self.grade,
@@ -156,6 +195,7 @@ class BufferedQuizProvider:
             history=list(self.play_history),
             good_examples=list(self._ratings.get("good", [])),
             bad_examples=list(self._ratings.get("bad", [])),
+            split_wait_seconds=split_wait,
         )
         if results:
             self.online_fail_streak = 0
@@ -196,18 +236,8 @@ class BufferedQuizProvider:
         return ""
 
     def _should_force_offline_fill(self) -> bool:
-        if self.llm_mode != "ONLINE":
-            return False
-        if self.force_offline_fill_after_seconds <= 0:
-            return False
-        elapsed = time.time() - self.preload_started_at
-        if elapsed < self.force_offline_fill_after_seconds:
-            return False
-        with self.buffer_lock:
-            pending = len(self.buffer) + self.inflight
-        if self.mode == MODE_TEN:
-            return pending < max(2, min(4, self.target_count))
-        return pending < 1
+        # User requested strictly NO offline fallbacks when in ONLINE mode.
+        return False
 
     def _api_worker(self, _worker_id: int) -> None:
         while not self.stop_event.is_set():
@@ -218,18 +248,46 @@ class BufferedQuizProvider:
             fetched: List[QuizItem] = []
             try:
                 force_offline = self._should_force_offline_fill()
+                fetched: Optional[List[QuizItem]] = []
+                
                 if self.llm_mode == "ONLINE" and not force_offline:
-                    fetched = self._fetch_online(2)
+                    batch_size = int(os.getenv("LLM_BATCH_QUESTION_COUNT_TEN", "5")) if self.mode == MODE_TEN else int(os.getenv("LLM_BATCH_QUESTION_COUNT", "3"))
+                    fetched = self._fetch_online(batch_size)
+                    
+                # If fetched is None, it means we skipped online fetching due to debounce/backoff.
+                # In that case, we shouldn't immediately fallback to offline unless force_offline is True.
+                if fetched is None:
+                    if force_offline:
+                        fetched = []
+                    else:
+                        time.sleep(0.5)
+                        continue
+                        
                 if not fetched:
+                    # STRICT RULE: NEVER fetch offline problems if in ONLINE mode
+                    if self.llm_mode == "ONLINE":
+                        time.sleep(1.0)
+                        continue
+
                     # TEN mode needs a wider offline candidate set; otherwise
                     # repeated small batches can be exhausted by similarity checks.
                     offline_batch = 2
                     if self.mode == MODE_TEN:
                         offline_batch = max(6, min(10, self.target_count))
                     fetched = self._fetch_offline(offline_batch)
+
+                accepted_any = False
                 random.shuffle(fetched)
                 for quiz in fetched:
-                    reason = self._validate_quiz(quiz)
+                    # After several consecutive empty batches, relax similarity
+                    # check to avoid deadlock with a small offline bank.
+                    if self._offline_empty_streak >= 3:
+                        reason = ""
+                        # Still reject bad-rated questions
+                        if is_bad_rated_question(self._ratings, quiz, self.subject, self.grade):
+                            reason = "bad_rated_question"
+                    else:
+                        reason = self._validate_quiz(quiz)
                     if reason:
                         append_generation_reject_log(
                             self.reject_log_path, quiz, self.subject, self.grade, self.difficulty, reason
@@ -240,6 +298,12 @@ class BufferedQuizProvider:
                     )
                     push_recent_question(self.recent_questions, quiz)
                     self._push_quiz(quiz)
+                    accepted_any = True
+
+                if accepted_any:
+                    self._offline_empty_streak = 0
+                else:
+                    self._offline_empty_streak += 1
             finally:
                 self._mark_inflight(-1)
             time.sleep(0.01)

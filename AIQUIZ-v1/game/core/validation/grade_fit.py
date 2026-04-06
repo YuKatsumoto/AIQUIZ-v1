@@ -56,10 +56,26 @@ def grade_fit_reject_reason(
     threshold = max(0.28, base - threshold_relax)
     if score < threshold:
         return f"grade_fit_low:{score:.2f}<{threshold:.2f}"
-    if grade <= 2 and any(tok in text for tok in ["方程式", "一次関数", "二次方程式"]):
+    if grade <= 2 and any(tok in text for tok in ["方程式", "一次関数", "二次方程式", "割合", "速さ", "体積"]):
         return "topic_too_advanced_low_grade"
-    if grade >= 5 and any(tok in text for tok in ["ひらがな", "カタカナ"]):
+    if grade >= 5 and any(tok in text for tok in ["ひらがな", "カタカナ", "おもちゃ", "どんぐり", "あさがお"]):
         return "topic_too_easy_upper_grade"
+    
+    # Strict filtering for Math in upper grades
+    if subject == "算数":
+        if grade >= 5:
+            # Reject simple 1-digit addition/subtraction without advanced contexts
+            if re.search(r"(?<!\d)[1-9]\s*[\+\-]\s*[1-9](?!\d)", text) and not any(k in text for k in ["割合", "比", "平均", "小数", "分数", "速さ", "面積"]):
+                return "math_too_easy_upper_grade"
+            # Require at least some intermediate markers or larger numbers
+            if not any(k in text for k in ["×", "÷", "角", "度", "円", "分数", "小数", "面積", "体積", "割合", "速", "比", "約数", "倍数", "平均", "％", "割"]):
+                if not re.search(r"\d{3,}", text): # No large numbers and no advanced concepts
+                    return "math_too_easy_upper_grade_no_concept"
+        elif grade >= 3:
+            # 3rd/4th graders shouldn't get 1-digit addition/subtraction without context
+            if re.search(r"(?<!\d)[1-9]\s*[\+\-]\s*[1-9](?!\d)", text) and not any(k in text for k in ["×", "÷", "m", "g", "L", "時間", "分"]):
+                return "math_too_easy_mid_grade"
+
     return ""
 
 

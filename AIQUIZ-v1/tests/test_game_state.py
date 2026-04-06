@@ -60,7 +60,6 @@ class GameStateTests(unittest.TestCase):
         gs.start_game()
         gs.update(gs.min_preload_sec + 0.05, 0.0)
         gs.player_x = gs.tuning.left_door_x
-        gs.wall_z = gs.tuning.hit_z
         gs.resolve_collision()
         self.assertEqual(gs.game_state, STATE_CORRECT)
         self.assertEqual(gs.score, 1)
@@ -70,7 +69,6 @@ class GameStateTests(unittest.TestCase):
         gs.start_game()
         gs.update(gs.min_preload_sec + 0.05, 0.0)
         gs.player_x = gs.tuning.left_door_x
-        gs.wall_z = gs.tuning.hit_z
         gs.resolve_collision()
         self.assertEqual(gs.game_state, STATE_GAME_OVER)
         self.assertIn("GAME OVER", gs.message_text)
@@ -109,7 +107,6 @@ class GameStateTests(unittest.TestCase):
         gs.start_game()
         gs.update(gs.min_preload_sec + 0.05, 0.0)
         gs.player_x = gs.tuning.left_door_x
-        gs.wall_z = gs.tuning.hit_z
         gs.resolve_collision()  # wrong -> GAME_OVER and rating target set
         gs.rate_last_question(True)
         gs.rate_last_question(False)

@@ -1,41 +1,143 @@
-{"timestamp": "2026-03-07 16:03:48", "player_id": 1, "source": "Gemini", "subject": "算数", "grade": 3, "difficulty": "普通", "question": "りんご1個の重さが150グラムです。りんご3個の重さは、およそ何グラムになるでしょうか。"}
-{"timestamp": "2026-03-07 16:03:48", "player_id": 1, "source": "Gemini", "subject": "算数", "grade": 3, "difficulty": "普通", "question": "1キログラムの砂糖と、500グラムの塩があります。どちらのほうが重いでしょうか。"}
-{"timestamp": "2026-03-07 16:03:48", "player_id": 1, "source": "Gemini", "subject": "算数", "grade": 3, "difficulty": "普通", "question": "1リットルの牛乳パックが2つあります。牛乳の重さは、およそ何キログラムになるでしょうか。牛乳1リットルは、だいたい1キログラムと考えます。"}
-{"timestamp": "2026-03-07 16:03:53", "player_id": 1, "source": "ChatGPT", "subject": "算数", "grade": 3, "difficulty": "普通", "question": "0.7リットルのジュースと0.6リットルの水、どちらのほうが量が多いでしょうか？"}
-{"timestamp": "2026-03-07 16:03:53", "player_id": 1, "source": "ChatGPT", "subject": "算数", "grade": 3, "difficulty": "普通", "question": "1.2キログラムの米と0.9キログラムの小麦粉があります。2つを合わせると何キログラムになりますか？"}
-{"timestamp": "2026-03-07 16:03:53", "player_id": 1, "source": "ChatGPT", "subject": "算数", "grade": 3, "difficulty": "普通", "question": "0.5メートルのリボンと0.8メートルのリボンがあります。どちらが0.7メートルより長いでしょうか？"}
-{"timestamp": "2026-03-07 16:03:58", "player_id": 1, "source": "Gemini", "subject": "算数", "grade": 3, "difficulty": "普通", "question": "まっすぐな線が2つあり、どちらもかぎらずに、まがった形になっていません。これらの線は、どんな形をしていますか。"}
-{"timestamp": "2026-03-07 16:03:58", "player_id": 1, "source": "Gemini", "subject": "算数", "grade": 3, "difficulty": "普通", "question": "コップの中に水が入っています。この水の形は、コップの形と同じように変わります。これは、ものの性質について、どのようなことを示していますか。"}
-{"timestamp": "2026-03-07 16:03:58", "player_id": 1, "source": "Gemini", "subject": "算数", "grade": 3, "difficulty": "普通", "question": "ボールを地面になげると、どんな形になって、あたったところがへこんだり、ゆがんだりしますか。それとも、いつでも丸い形を保っていますか。"}
-{"timestamp": "2026-03-07 16:04:03", "player_id": 1, "source": "ChatGPT", "subject": "算数", "grade": 3, "difficulty": "普通", "question": "12個のクッキーを3人で同じ数ずつ分けると、1人分は何個になるでしょうか？"}
-{"timestamp": "2026-03-07 16:04:03", "player_id": 1, "source": "ChatGPT", "subject": "算数", "grade": 3, "difficulty": "普通", "question": "1本のリボンを7等分しました。長さが56センチメートルのリボン1つの長さは何センチメートルでしょうか？"}
-{"timestamp": "2026-03-07 16:04:03", "player_id": 1, "source": "ChatGPT", "subject": "算数", "grade": 3, "difficulty": "普通", "question": "24個のキャンディーを4袋に同じ数ずつ入れました。1袋に入っている数は、6より多いですか？少ないですか？"}
-{"timestamp": "2026-03-07 16:04:18", "player_id": 1, "source": "Gemini", "subject": "算数", "grade": 3, "difficulty": "普通", "question": "ピザが8つに分けられています。そのうち3つを食べました。食べたピザは、ピザ全体のどれだけですか？"}
-{"timestamp": "2026-03-07 16:04:18", "player_id": 1, "source": "Gemini", "subject": "算数", "grade": 3, "difficulty": "普通", "question": "ジュースが1リットル入ったペットボトルがあります。コップ1杯で2分の1リットル飲みました。残っているジュースは何分のいくつですか？"}
-{"timestamp": "2026-03-07 16:04:18", "player_id": 1, "source": "Gemini", "subject": "算数", "grade": 3, "difficulty": "普通", "question": "お菓子が6個あります。そのうちの3個を食べました。残っているお菓子は、お菓子全体のどれだけですか？"}
-{"timestamp": "2026-03-07 16:04:25", "player_id": 1, "source": "ChatGPT", "subject": "算数", "grade": 3, "difficulty": "普通", "question": "1本のチョコレートを5つに分けました。そのうち2つを友だちにあげました。あげたチョコレートは全体のどれくらいですか？"}
-{"timestamp": "2026-03-07 16:04:25", "player_id": 1, "source": "ChatGPT", "subject": "算数", "grade": 3, "difficulty": "普通", "question": "ケーキを4つに切って、1つと2分の1を食べました。食べたのはケーキ全体のどれくらいでしょう？"}
-{"timestamp": "2026-03-07 16:04:25", "player_id": 1, "source": "ChatGPT", "subject": "算数", "grade": 3, "difficulty": "普通", "question": "水そうに2リットルの水が入っています。1リットル飲んだら、残っている水は全体のどれくらいですか？"}
-{"timestamp": "2026-03-07 16:04:29", "player_id": 1, "source": "Gemini", "subject": "算数", "grade": 3, "difficulty": "普通", "question": "まっすぐな線と、丸い線でできた形は何でしょう？"}
-{"timestamp": "2026-03-07 16:04:30", "player_id": 1, "source": "Gemini", "subject": "算数", "grade": 3, "difficulty": "普通", "question": "ピンポン玉を、箱にまっすぐ転がしていくと、どのような形になって箱に入りますか？"}
-{"timestamp": "2026-03-07 16:04:30", "player_id": 1, "source": "Gemini", "subject": "算数", "grade": 3, "difficulty": "普通", "question": "お皿のふちや、コインのまわりは、どのような形に似ていますか？"}
-{"timestamp": "2026-03-07 16:04:34", "player_id": 1, "source": "ChatGPT", "subject": "算数", "grade": 3, "difficulty": "普通", "question": "24個のりんごを6人で同じ数ずつ分けると、1人分はいくつになりますか？"}
-{"timestamp": "2026-03-07 16:04:34", "player_id": 1, "source": "ChatGPT", "subject": "算数", "grade": 3, "difficulty": "普通", "question": "1つのリボンを9等分して、3つ分使いました。使ったリボンは全体のどれくらいですか？"}
-{"timestamp": "2026-03-07 16:04:34", "player_id": 1, "source": "ChatGPT", "subject": "算数", "grade": 3, "difficulty": "普通", "question": "30個のクッキーを5人で分けると、1人は何個もらえますか？もし6個ずつ配ったら、クッキーは足りますか？"}
-{"t": 1774680948, "player": 1, "subject": "算数", "grade": 3, "difficulty": "普通", "q": "【図形】円のまわりの長さを何という？", "src": "OFFLINE"}
-{"t": 1774680948, "player": 1, "subject": "算数", "grade": 3, "difficulty": "普通", "q": "[算数3年] 11+7 はどちら？", "src": "FALLBACK"}
-{"t": 1774680948, "player": 1, "subject": "算数", "grade": 3, "difficulty": "普通", "q": "[算数3年] 5+1 はどちら？", "src": "FALLBACK"}
-{"t": 1774680948, "player": 1, "subject": "算数", "grade": 3, "difficulty": "普通", "q": "【単位】1kmは 何m？", "src": "OFFLINE"}
-{"t": 1774680948, "player": 1, "subject": "算数", "grade": 3, "difficulty": "普通", "q": "【単位】1kmは 何m？", "src": "OFFLINE"}
-{"t": 1774680948, "player": 1, "subject": "算数", "grade": 3, "difficulty": "普通", "q": "【計算】0 × 5 は？", "src": "OFFLINE"}
-{"t": 1774680948, "player": 1, "subject": "算数", "grade": 3, "difficulty": "普通", "q": "【分数】3/5 と 2/5、足すと？", "src": "OFFLINE"}
-{"t": 1774680948, "player": 1, "subject": "算数", "grade": 3, "difficulty": "普通", "q": "【計算】24 ÷ 3 は？", "src": "OFFLINE"}
-{"t": 1774680948, "player": 1, "subject": "算数", "grade": 3, "difficulty": "普通", "q": "【計算】24 ÷ 3 は？", "src": "OFFLINE"}
-{"t": 1774680948, "player": 1, "subject": "算数", "grade": 3, "difficulty": "普通", "q": "【時間】午後1時は 24時間制で？", "src": "OFFLINE"}
-{"t": 1774680948, "player": 1, "subject": "算数", "grade": 3, "difficulty": "普通", "q": "【図形】球をどこで切っても 切り口は？", "src": "OFFLINE"}
-{"t": 1774680948, "player": 1, "subject": "算数", "grade": 3, "difficulty": "普通", "q": "【単位】1kgは 何g？", "src": "OFFLINE"}
-{"t": 1774680948, "player": 1, "subject": "算数", "grade": 3, "difficulty": "普通", "q": "[算数3年] 7+7 はどちら？", "src": "FALLBACK"}
-{"t": 1774680948, "player": 1, "subject": "算数", "grade": 3, "difficulty": "普通", "q": "【分数】3/5 と 2/5、足すと？", "src": "OFFLINE"}
-{"t": 1774680948, "player": 1, "subject": "算数", "grade": 3, "difficulty": "普通", "q": "【図形】球をどこで切っても 切り口は？", "src": "OFFLINE"}
-{"t": 1774680948, "player": 1, "subject": "算数", "grade": 3, "difficulty": "普通", "q": "【単位】1kgは 何g？", "src": "OFFLINE"}
-{"t": 1774680948, "player": 1, "subject": "算数", "grade": 3, "difficulty": "普通", "q": "【時間】午後1時は 24時間制で？", "src": "OFFLINE"}
+{"t": 1775365655, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "【短歌】短歌のリズム（音数）は？", "src": "OFFLINE"}
+{"t": 1775365655, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "【四字熟語】一生に一度の出会い。", "src": "OFFLINE"}
+{"t": 1775365655, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "【古典】「竹取物語」の主人公は？", "src": "OFFLINE"}
+{"t": 1775365655, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "【敬語】先生が「言う」。尊敬語にすると？", "src": "OFFLINE"}
+{"t": 1775365656, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "【敬語】「食べる」の謙譲語（自分を下げる）は？", "src": "OFFLINE"}
+{"t": 1775365656, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "【四字熟語】自分のしたことの報いを自分が受けること。", "src": "OFFLINE"}
+{"t": 1775365656, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "【矛盾】の読みは？", "src": "OFFLINE"}
+{"t": 1775365656, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "【厳格】の意味にちかいのは？", "src": "OFFLINE"}
+{"t": 1775365656, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "【四字熟語】自分のしたことの報いを自分が受けること。", "src": "OFFLINE"}
+{"t": 1775365656, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "【敬語】先生が「言う」。尊敬語にすると？", "src": "OFFLINE"}
+{"t": 1775365656, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "【敬語】「食べる」の謙譲語（自分を下げる）は？", "src": "OFFLINE"}
+{"t": 1775365656, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "【漢字】「推す」。推理の「推」の読み方は？", "src": "OFFLINE"}
+{"t": 1775365656, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "【熟語】3人で相談すること。「三人寄れば？」", "src": "OFFLINE"}
+{"t": 1775365656, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "【歴史的仮名遣い】「てふてふ」はどう読む？", "src": "OFFLINE"}
+{"t": 1775365656, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "【古典】「竹取物語」の主人公は？", "src": "OFFLINE"}
+{"t": 1775365656, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "【熟語】3人で相談すること。「三人寄れば？」", "src": "OFFLINE"}
+{"t": 1775365656, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "【短歌】短歌のリズム（音数）は？", "src": "OFFLINE"}
+{"t": 1775365656, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "【歴史的仮名遣い】「てふてふ」はどう読む？", "src": "OFFLINE"}
+{"t": 1775365656, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "【敬語】「食べる」の謙譲語（自分を下げる）は？", "src": "OFFLINE"}
+{"t": 1775365656, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "【矛盾】の読みは？", "src": "OFFLINE"}
+{"t": 1775365656, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "【厳格】の意味にちかいのは？", "src": "OFFLINE"}
+{"t": 1775365656, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "【漢字】「都道府県」の「県」。正しいのは？", "src": "OFFLINE"}
+{"t": 1775365656, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "【四字熟語】一生に一度の出会い。", "src": "OFFLINE"}
+{"t": 1775365656, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "【敬語】先生が「言う」。尊敬語にすると？", "src": "OFFLINE"}
+{"t": 1775365656, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "【漢字】「都道府県」の「県」。正しいのは？", "src": "OFFLINE"}
+{"t": 1775365656, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "【座右の銘】自分の励ましにする言葉を何という？", "src": "OFFLINE"}
+{"t": 1775365692, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "次のうち、俳句に使われる季語として正しいものはどれでしょう？", "src": "OPENAI"}
+{"t": 1775365694, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "次の短歌の中で、比喩を使っているものはどれでしょうか。", "src": "OPENAI"}
+{"t": 1775365697, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "次の表現の工夫として、どの比喩が使われていますか。「彼の笑顔は太陽のようだ」", "src": "OPENAI"}
+{"t": 1775365700, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "「雨が降るように涙を流す」という表現は、どのような比喩を使っていますか？", "src": "OPENAI"}
+{"t": 1775365700, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "次の短歌の中で、秋を表現しているものはどれですか？", "src": "OPENAI"}
+{"t": 1775365705, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "短歌の中で、比喩を使って表現を豊かにする方法として正しいものはどれでしょう？", "src": "OPENAI"}
+{"t": 1775365713, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "次の文の中で、比喩を使っているものはどれでしょう？", "src": "OPENAI"}
+{"t": 1775365720, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "次のうち、短歌における「掛詞」とはどれでしょう？", "src": "OPENAI"}
+{"t": 1775366642, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "次の短歌における表現の工夫として、どれが使われていますか？「秋の夜の 長き思いを ひとり寝に」", "src": "OPENAI"}
+{"t": 1775366642, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "俳句における季語の役割は何ですか？", "src": "OPENAI"}
+{"t": 1775366645, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "次の短歌の中で、作者が自然を愛でる気持ちを最も表現しているのはどれですか？", "src": "OPENAI"}
+{"t": 1775366646, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "次の文で、表現の工夫がされている部分はどれですか？「彼の声は雷のように響いた」", "src": "OPENAI"}
+{"t": 1775366646, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "この短歌の中で、比喩が使われている部分を選びなさい。「秋の夜の月は銀の皿のようだ」", "src": "OPENAI"}
+{"t": 1775366650, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "次の短歌の中で、自然の風景を詠んでいるものはどれでしょう？", "src": "OPENAI"}
+{"t": 1775366650, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "次のうち、比喩表現を使っている文はどれでしょう？", "src": "OPENAI"}
+{"t": 1775366654, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "次の短歌の中で、歴史的仮名遣いが使われているのはどれでしょう？", "src": "OPENAI"}
+{"t": 1775366660, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "次の短歌の中で、比喩が使われているものはどれでしょう？「秋の夜の 長き思いを ひとり寝に」", "src": "OPENAI"}
+{"t": 1775366664, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "次の短歌の表現技法は何ですか？「春の風 そよぐ中に 君の声」", "src": "OPENAI"}
+{"t": 1775366664, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "次の俳句の中で、季語が使われているのはどれですか？", "src": "OPENAI"}
+{"t": 1775366664, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "次の短歌における表現の工夫として、どれが使われていますか？「春の風 花の香りを 運びくる」", "src": "OPENAI"}
+{"t": 1775366678, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "『月が出ている夜は、まるで昼間のように明るい』という表現はどの比喩を使っていますか？", "src": "OPENAI"}
+{"t": 1775366678, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "『彼の心は氷のように冷たい』という表現で、比喩されている部分はどれですか？", "src": "OPENAI"}
+{"t": 1775366678, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "『彼女の微笑みは太陽のように暖かい』という表現で、何が比喩されていますか？", "src": "OPENAI"}
+{"t": 1775366678, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "次の文章の中で、比喩が使われているのはどれでしょう？『彼の声は雷のように響き渡った。』", "src": "OPENAI"}
+{"t": 1775366682, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "次の文の比喩表現はどれか。\"彼の笑顔は太陽のように明るい。\"", "src": "OPENAI"}
+{"t": 1775366682, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "次の文章の中で、比喩表現を使っているものはどれですか？\n「彼の声は雷のように響いた。」", "src": "OPENAI"}
+{"t": 1775366682, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "次の文の中で、比喩が使われているのはどれか。\"彼女の声は音楽のように美しい。\"", "src": "OPENAI"}
+{"t": 1775366682, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "次の短歌の表現技法は何か。\"春の風に舞う花びら、心も踊る。\"", "src": "OPENAI"}
+{"t": 1775366682, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "次の短歌を読んで、作者が表現したかった気持ちは何ですか？\n「春の夜の夢のごとしと人は言う」", "src": "OPENAI"}
+{"t": 1775366683, "player": 1, "subject": "国語", "grade": 6, "difficulty": "難しい", "q": "次の短歌の中で、比喩表現が使われているものはどれですか？", "src": "OPENAI"}
+{"t": 1775367251, "player": 1, "subject": "算数", "grade": 6, "difficulty": "難しい", "q": "3時間で180km走る自動車の時速は？", "src": "OFFLINE"}
+{"t": 1775367251, "player": 1, "subject": "算数", "grade": 6, "difficulty": "難しい", "q": "3時間で240km走る自動車の時速は？", "src": "OFFLINE"}
+{"t": 1775367252, "player": 1, "subject": "算数", "grade": 6, "difficulty": "難しい", "q": "【割合】25%を分数で言うと？", "src": "OFFLINE"}
+{"t": 1775367252, "player": 1, "subject": "算数", "grade": 6, "difficulty": "難しい", "q": "【速さ】時速60kmで2時間進むと？", "src": "OFFLINE"}
+{"t": 1775367253, "player": 1, "subject": "算数", "grade": 6, "difficulty": "難しい", "q": "3時間で210km走る自動車の時速は？", "src": "OFFLINE"}
+{"t": 1775367253, "player": 1, "subject": "算数", "grade": 6, "difficulty": "難しい", "q": "5時間で300km走る自動車の時速は？", "src": "OFFLINE"}
+{"t": 1775367253, "player": 1, "subject": "算数", "grade": 6, "difficulty": "難しい", "q": "3時間で180km走る自動車の時速は？", "src": "OFFLINE"}
+{"t": 1775367253, "player": 1, "subject": "算数", "grade": 6, "difficulty": "難しい", "q": "3時間で150km走る自動車の時速は？", "src": "OFFLINE"}
+{"t": 1775367253, "player": 1, "subject": "算数", "grade": 6, "difficulty": "難しい", "q": "【割合】25%を分数で言うと？", "src": "OFFLINE"}
+{"t": 1775367253, "player": 1, "subject": "算数", "grade": 6, "difficulty": "難しい", "q": "3時間で240km走る自動車の時速は？", "src": "OFFLINE"}
+{"t": 1775367253, "player": 1, "subject": "算数", "grade": 6, "difficulty": "難しい", "q": "2時間で100km走る自動車の時速は？", "src": "OFFLINE"}
+{"t": 1775367253, "player": 1, "subject": "算数", "grade": 6, "difficulty": "難しい", "q": "【速さ】時速60kmで2時間進むと？", "src": "OFFLINE"}
+{"t": 1775367253, "player": 1, "subject": "算数", "grade": 6, "difficulty": "難しい", "q": "3時間で210km走る自動車の時速は？", "src": "OFFLINE"}
+{"t": 1775367253, "player": 1, "subject": "算数", "grade": 6, "difficulty": "難しい", "q": "4時間で240km走る自動車の時速は？", "src": "OFFLINE"}
+{"t": 1775367253, "player": 1, "subject": "算数", "grade": 6, "difficulty": "難しい", "q": "3時間で240km走る自動車の時速は？", "src": "OFFLINE"}
+{"t": 1775367253, "player": 1, "subject": "算数", "grade": 6, "difficulty": "難しい", "q": "4時間で160km走る自動車の時速は？", "src": "OFFLINE"}
+{"t": 1775367253, "player": 1, "subject": "算数", "grade": 6, "difficulty": "難しい", "q": "4時間で120km走る自動車の時速は？", "src": "OFFLINE"}
+{"t": 1775367253, "player": 1, "subject": "算数", "grade": 6, "difficulty": "難しい", "q": "5時間で200km走る自動車の時速は？", "src": "OFFLINE"}
+{"t": 1775367253, "player": 1, "subject": "算数", "grade": 6, "difficulty": "難しい", "q": "2時間で160km走る自動車の時速は？", "src": "OFFLINE"}
+{"t": 1775367253, "player": 1, "subject": "算数", "grade": 6, "difficulty": "難しい", "q": "【割合】25%を分数で言うと？", "src": "OFFLINE"}
+{"t": 1775367253, "player": 1, "subject": "算数", "grade": 6, "difficulty": "難しい", "q": "4時間で120km走る自動車の時速は？", "src": "OFFLINE"}
+{"t": 1775367253, "player": 1, "subject": "算数", "grade": 6, "difficulty": "難しい", "q": "4時間で200km走る自動車の時速は？", "src": "OFFLINE"}
+{"t": 1775369053, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "1/3を3倍すると、何になる？", "src": "OFFLINE"}
+{"t": 1775369053, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "430 － 142 ＝ ？", "src": "OFFLINE"}
+{"t": 1775369053, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "430 － 142 ＝ ？", "src": "OFFLINE"}
+{"t": 1775369053, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "1/5と1/5を足すと、何になる？", "src": "OFFLINE"}
+{"t": 1775369053, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "1/8と1/2を足すと、何になる？", "src": "OFFLINE"}
+{"t": 1775369053, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "1/2は何%にあたる？", "src": "OFFLINE"}
+{"t": 1775369053, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "1/2と1/3の平均は、何になる？", "src": "OFFLINE"}
+{"t": 1775369053, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "3/4から1/8を引くと、何になる？", "src": "OFFLINE"}
+{"t": 1775369053, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "805 ＋ 818 ＝ ？", "src": "OFFLINE"}
+{"t": 1775369053, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "1/2の半分は、何になる？", "src": "OFFLINE"}
+{"t": 1775369053, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "314 ＋ 340 ＝ ？", "src": "OFFLINE"}
+{"t": 1775369913, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "【応用】193 － 224 の計算の答えは？", "src": "OFFLINE"}
+{"t": 1775369913, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "【応用】264 － 411 の計算の答えは？", "src": "OFFLINE"}
+{"t": 1775369913, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "【応用】148 － 313 の計算の答えは？", "src": "OFFLINE"}
+{"t": 1775369913, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "【応用】193 － 224 の計算の答えは？", "src": "OFFLINE"}
+{"t": 1775369913, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "【応用】848 － 174 の計算の答えは？", "src": "OFFLINE"}
+{"t": 1775369913, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "【応用】529 － 272 の計算の答えは？", "src": "OFFLINE"}
+{"t": 1775369913, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "【応用】206 － 436 の計算の答えは？", "src": "OFFLINE"}
+{"t": 1775369913, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "【応用】664 － 128 の計算の答えは？", "src": "OFFLINE"}
+{"t": 1775369913, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "【応用】708 － 258 の計算の答えは？", "src": "OFFLINE"}
+{"t": 1775369913, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "【応用】586 － 386 の計算の答えは？", "src": "OFFLINE"}
+{"t": 1775369913, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "【応用】550 － 157 の計算の答えは？", "src": "OFFLINE"}
+{"t": 1775369913, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "【応用】187 － 477 の計算の答えは？", "src": "OFFLINE"}
+{"t": 1775369913, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "【応用】970 － 301 の計算の答えは？", "src": "OFFLINE"}
+{"t": 1775369913, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "【応用】574 － 320 の計算の答えは？", "src": "OFFLINE"}
+{"t": 1775369913, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "【応用】965 － 350 の計算の答えは？", "src": "OFFLINE"}
+{"t": 1775369913, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "【応用】850 － 412 の計算の答えは？", "src": "OFFLINE"}
+{"t": 1775369913, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "【応用】122 － 288 の計算の答えは？", "src": "OFFLINE"}
+{"t": 1775369913, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "【応用】122 － 288 の計算の答えは？", "src": "OFFLINE"}
+{"t": 1775369913, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "【応用】546 － 362 の計算の答えは？", "src": "OFFLINE"}
+{"t": 1775369913, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "【応用】821 － 419 の計算の答えは？", "src": "OFFLINE"}
+{"t": 1775369913, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "【応用】348 － 449 の計算の答えは？", "src": "OFFLINE"}
+{"t": 1775369913, "player": 1, "subject": "算数", "grade": 3, "difficulty": "難しい", "q": "【応用】151 － 212 の計算の答えは？", "src": "OFFLINE"}
+{"t": 1775483934, "player": 1, "subject": "国語", "grade": 6, "difficulty": "普通", "q": "次の短歌の中で、秋を表現しているものはどれですか？", "src": "OPENAI"}
+{"t": 1775483934, "player": 1, "subject": "国語", "grade": 6, "difficulty": "普通", "q": "次の文の中で、比喩を使っているものはどれですか？", "src": "OPENAI"}
+{"t": 1775483934, "player": 1, "subject": "国語", "grade": 6, "difficulty": "普通", "q": "次の中で、座右の銘として使われることが多い言葉はどれですか？", "src": "OPENAI"}
+{"t": 1775483934, "player": 1, "subject": "国語", "grade": 6, "difficulty": "普通", "q": "次の熟語のうち、意味が「とても珍しいこと」を表すものはどれですか？", "src": "OPENAI"}
+{"t": 1775483934, "player": 1, "subject": "国語", "grade": 6, "difficulty": "普通", "q": "短歌や俳句で使われる『切れ字』とは何の役割を持っていますか？", "src": "OPENAI"}
+{"t": 1775483934, "player": 1, "subject": "国語", "grade": 6, "difficulty": "普通", "q": "『座右の銘』とはどのような意味ですか？", "src": "OPENAI"}
+{"t": 1775483934, "player": 1, "subject": "国語", "grade": 6, "difficulty": "普通", "q": "歴史的仮名遣いで『ゐ』は現代仮名遣いでどのように表されますか？", "src": "OPENAI"}
+{"t": 1775483934, "player": 1, "subject": "国語", "grade": 6, "difficulty": "普通", "q": "『比喩』の中で、物を人のように表現するものを何と言いますか？", "src": "OPENAI"}
+{"t": 1775483940, "player": 1, "subject": "国語", "grade": 6, "difficulty": "普通", "q": "「一石二鳥」という言葉の由来に関係があるのはどちらですか？", "src": "OPENAI"}
+{"t": 1775483940, "player": 1, "subject": "国語", "grade": 6, "difficulty": "普通", "q": "次の短歌の中で、自然の美しさを表現しているものはどれですか？", "src": "OPENAI"}
+{"t": 1775483940, "player": 1, "subject": "国語", "grade": 6, "difficulty": "普通", "q": "次の熟語のうち、意味が「非常に珍しいこと」を表すのはどれですか？", "src": "OPENAI"}
+{"t": 1775483940, "player": 1, "subject": "国語", "grade": 6, "difficulty": "普通", "q": "歴史的仮名遣いで「今日」を表すのはどちらですか？", "src": "OPENAI"}
+{"t": 1775483941, "player": 1, "subject": "国語", "grade": 6, "difficulty": "普通", "q": "歴史的仮名遣いについて、次のうち正しいものを選びなさい。「ゐる」という言葉は現代仮名遣いでどのように書かれますか？", "src": "OPENAI"}
+{"t": 1775483941, "player": 1, "subject": "国語", "grade": 6, "difficulty": "普通", "q": "次の俳句の中で、季節を表す言葉が含まれているものはどれですか？", "src": "OPENAI"}
+{"t": 1775483941, "player": 1, "subject": "国語", "grade": 6, "difficulty": "普通", "q": "次の言葉の由来についての説明を読んで、正しいものを選びなさい。「お茶を濁す」という表現はどのような状況から生まれたのでしょうか？", "src": "OPENAI"}
+{"t": 1775483941, "player": 1, "subject": "国語", "grade": 6, "difficulty": "普通", "q": "次の短歌の中で、比喩が使われているものはどれですか？", "src": "OPENAI"}
+{"t": 1775483955, "player": 1, "subject": "国語", "grade": 6, "difficulty": "普通", "q": "次の短歌の中で、比喩が使われているのはどちらでしょうか？", "src": "OPENAI"}
+{"t": 1775483955, "player": 1, "subject": "国語", "grade": 6, "difficulty": "普通", "q": "次の俳句の表現方法として正しいのはどれですか？『古池や蛙飛び込む水の音』", "src": "OPENAI"}
+{"t": 1775483955, "player": 1, "subject": "国語", "grade": 6, "difficulty": "普通", "q": "「座右の銘」として適切なのはどちらでしょう？", "src": "OPENAI"}
+{"t": 1775483955, "player": 1, "subject": "国語", "grade": 6, "difficulty": "普通", "q": "短歌や俳句で使われる『比喩』とは何を指しますか？", "src": "OPENAI"}
+{"t": 1775483955, "player": 1, "subject": "国語", "grade": 6, "difficulty": "普通", "q": "「言葉の由来」に関する問題です。「かんむり」という言葉の由来はどちらでしょうか？", "src": "OPENAI"}
+{"t": 1775483955, "player": 1, "subject": "国語", "grade": 6, "difficulty": "普通", "q": "『座右の銘』とはどんな意味ですか？", "src": "OPENAI"}
+{"t": 1775483955, "player": 1, "subject": "国語", "grade": 6, "difficulty": "普通", "q": "次のうち、歴史的仮名遣いが使われている言葉はどれでしょうか？", "src": "OPENAI"}
+{"t": 1775483955, "player": 1, "subject": "国語", "grade": 6, "difficulty": "普通", "q": "歴史的仮名遣いで「おもう」を正しく表記するとどれですか？", "src": "OPENAI"}
+{"t": 1775483961, "player": 1, "subject": "国語", "grade": 6, "difficulty": "普通", "q": "俳句において、季節を表す言葉を何と呼ぶでしょうか？", "src": "OPENAI"}
+{"t": 1775483961, "player": 1, "subject": "国語", "grade": 6, "difficulty": "普通", "q": "『言葉の由来』に関する問題です。『さよなら』の由来は何でしょうか？", "src": "OPENAI"}
+{"t": 1775483961, "player": 1, "subject": "国語", "grade": 6, "difficulty": "普通", "q": "次の短歌の中で、自然の情景を表現しているのはどちらでしょうか？", "src": "OPENAI"}
+{"t": 1775483961, "player": 1, "subject": "国語", "grade": 6, "difficulty": "普通", "q": "次の中で、表現の工夫として『比喩』が使われているのはどちらでしょうか？", "src": "OPENAI"}
+{"t": 1775483962, "player": 1, "subject": "国語", "grade": 6, "difficulty": "普通", "q": "次の熟語のうち、意味が『大きな変化』に近いのはどちらでしょう？", "src": "OPENAI"}
+{"t": 1775483962, "player": 1, "subject": "国語", "grade": 6, "difficulty": "普通", "q": "次の俳句の季語はどれでしょう？『古池や 蛙飛びこむ 水の音』", "src": "OPENAI"}
+{"t": 1775483962, "player": 1, "subject": "国語", "grade": 6, "difficulty": "普通", "q": "歴史的仮名遣いで書かれているのはどちらでしょう？", "src": "OPENAI"}
+{"t": 1775483962, "player": 1, "subject": "国語", "grade": 6, "difficulty": "普通", "q": "次の短歌の中で、比喩が使われているのはどちらでしょう？『空に浮かぶ雲のように自由な心』", "src": "OPENAI"}

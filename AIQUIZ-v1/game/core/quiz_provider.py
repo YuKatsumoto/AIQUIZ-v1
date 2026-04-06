@@ -64,25 +64,24 @@ class OfflineQuizProvider:
         q = str(raw.get("q", "")).strip()
         c = raw.get("c", [])
         a = raw.get("a", None)
-        if not q or not isinstance(c, list) or len(c) != 2:
+        if not q or not isinstance(c, list) or len(c) not in (2, 4):
             return None
         try:
             a_int = int(a)
         except Exception:
             return None
-        if a_int not in (0, 1):
+        if a_int < 0 or a_int >= len(c):
             return None
         e = str(raw.get("e", raw.get("exp", ""))).strip()
         src = str(raw.get("src", "OFFLINE")).strip() or "OFFLINE"
-        c0 = str(c[0]).strip()
-        c1 = str(c[1]).strip()
-        if not c0 or not c1:
+        cleaned = [str(x).strip() for x in c]
+        if any(not x for x in cleaned):
             return None
         img = str(raw.get("img", "")).strip()
         choice_img = raw.get("choice_img", raw.get("choiceImg", []))
         if not isinstance(choice_img, list):
             choice_img = []
-        return QuizItem(q=q, c=[c0, c1], a=a_int, e=e, src=src, img=img, choice_img=[str(x) for x in choice_img])
+        return QuizItem(q=q, c=cleaned, a=a_int, e=e, src=src, img=img, choice_img=[str(x) for x in choice_img])
 
     def _complexity_score(self, item: QuizItem, subject: str, grade: int) -> float:
         text = f"{item.q} {' '.join(item.c)} {item.e}"
@@ -228,25 +227,25 @@ QUESTION_TYPES: dict[str, dict[int, list[str]]] = {
 GRADE_SCOPE_GUIDES: dict[str, dict[int, dict[str, str]]] = {
     "算数": {
         1: {"must": "20までのたし算・ひき算、数の大小、簡単な時計や図形", "avoid": "分数・小数・割合・速さ・体積のような上級内容"},
-        2: {"must": "九九、長さ・かさ、時刻、簡単な表の読み取り", "avoid": "割合・速さ・体積・比のような高学年中心の内容"},
-        3: {"must": "かけ算、わり算、分数の入口、円と球、長さ・重さ", "avoid": "割合・比・複雑な速さや高難度の面積問題"},
-        4: {"must": "大きな数、面積、角、折れ線グラフ、小数・分数", "avoid": "比や高度な割合など高学年中心の内容"},
-        5: {"must": "小数と分数の計算、割合、平均、単位量あたり、体積、図形の性質", "avoid": "中学レベルの方程式や座標"},
-        6: {"must": "比、割合、速さ、拡大図と縮図、円の面積、資料の見方、複数段階の判断", "avoid": "低学年向けの一桁計算や単純な個数計算だけの問題"},
+        2: {"must": "九九、長さ・かさ、時刻、簡単な表の読み取り", "avoid": "単なる1桁のたし算・ひき算など1年生レベルの単純な問題"},
+        3: {"must": "かけ算、わり算、分数の入口、円と球、長さ・重さ", "avoid": "九九の単純な暗記や1桁の計算など2年生以下の内容"},
+        4: {"must": "大きな数、面積、角、折れ線グラフ、小数・分数", "avoid": "単純な整数の四則演算や1桁のわり算など低学年レベル"},
+        5: {"must": "小数と分数の計算、割合、平均、単位量あたり、体積、図形の性質", "avoid": "整数の単純計算、分数・小数の基礎すぎる問題など4年生以下の内容"},
+        6: {"must": "比、割合、速さ、拡大図と縮図、円の面積、資料の見方、複数段階の判断", "avoid": "1段階のみの小数・分数計算など5年生以下の基礎レベル問題"},
     },
     "理科": {
         3: {"must": "植物やこん虫、光、音、磁石、電気など身近な観察内容", "avoid": "人体のしくみや水よう液など高学年中心の内容"},
-        4: {"must": "電流、天気、月や星、温度、金属や空気と水の変化", "avoid": "消化や血液循環、地層など6年寄りの内容"},
-        5: {"must": "発芽と成長、流れる水、天気、ふりこ、てこ、電磁石、ものの溶け方", "avoid": "中学理科レベルの化学式や専門用語"},
-        6: {"must": "人体、水よう液、月と太陽、土地のつくり、てこ、発電や電気の利用", "avoid": "中学以降の専門計算や抽象理論"},
+        4: {"must": "電流、天気、月や星、温度、金属や空気と水の変化", "avoid": "単に植物の名前を問うだけなど3年生以下の内容"},
+        5: {"must": "発芽と成長、流れる水、天気、ふりこ、てこ、電磁石、ものの溶け方", "avoid": "月や星の単純な知識、乾電池の繋ぎ方など4年生以下の内容"},
+        6: {"must": "人体、水よう液、月と太陽、土地のつくり、てこ、発電や電気の利用", "avoid": "ふりこや電磁石の単純な性質など5年生以下の内容"},
     },
     "国語": {
         1: {"must": "ひらがな、かたかな、やさしい言葉、短い文の読解", "avoid": "敬語や抽象的な文法用語"},
-        2: {"must": "語彙、短文読解、主語と述語の入口、漢字の基本", "avoid": "高度な敬語や長文要旨問題"},
-        3: {"must": "漢字、ことわざ・慣用句の入口、段落の読み取り、修飾語の基本", "avoid": "難しい敬語運用や抽象的な評論読解"},
-        4: {"must": "文法の基本、漢字、要点把握、段落や接続の理解", "avoid": "中学寄りの古典文法や難解な評論"},
-        5: {"must": "敬語、文の組み立て、熟語、資料や文章の読み取り、理由説明", "avoid": "低学年向けの単純な語句暗記だけの問題"},
-        6: {"must": "敬語、表現の効果、文章構成、要旨把握、漢字や語句の使い分け", "avoid": "低学年向けの単純な読みだけの問題"},
+        2: {"must": "語彙、短文読解、主語と述語の入口、漢字の基本", "avoid": "ひらがなの読み書きのみなど1年生レベル"},
+        3: {"must": "漢字、ことわざ・慣用句の入口、段落の読み取り、修飾語の基本", "avoid": "簡単な反対語や単純な主語述語探しなど2年生以下のレベル"},
+        4: {"must": "文法の基本、漢字、要点把握、段落や接続の理解", "avoid": "簡単なことわざの暗記など3年生以下のレベル"},
+        5: {"must": "敬語、文の組み立て、熟語、資料や文章の読み取り、理由説明", "avoid": "低学年向けの単純な語句暗記や漢字の読み書きだけの問題"},
+        6: {"must": "敬語、表現の効果、文章構成、要旨把握、漢字や語句の使い分け", "avoid": "単純な熟語の意味や敬語の丸暗記など5年生以下の内容"},
     },
 }
 
@@ -360,7 +359,8 @@ def grade_scope_prompt_lines(grade: int, subject: str) -> list[str]:
 def grade_fit_prompt_lines(grade: int, subject: str, difficulty: str) -> list[str]:
     idx = _difficulty_index(difficulty)
     lines = [
-        "IMPORTANT: Match the requested grade and subject exactly. Do not downgrade to lower-grade content.",
+        "CRITICAL: Match the requested grade and subject exactly. Do not downgrade to lower-grade content.",
+        f"CRITICAL: The topics must be strictly what students learn in grade {grade}, not grade {max(1, grade-1)} or below.",
         "IMPORTANT: Use age-appropriate terms, units, and curriculum-style phrasing for the specified grade.",
     ]
 
@@ -373,7 +373,7 @@ def grade_fit_prompt_lines(grade: int, subject: str, difficulty: str) -> list[st
             ]
         )
         if grade >= 3:
-            lines.append("If grade >= 3, avoid overly easy lower-grade items such as obvious single-step one-digit arithmetic or simple word guessing.")
+            lines.append("If grade >= 3, strictly avoid overly easy lower-grade items such as obvious single-step one-digit arithmetic or simple word guessing.")
         if grade >= 5:
             lines.append("If grade >= 5, prefer questions requiring organizing information, intermediate steps, or checking evidence/reasoning.")
     elif idx == 2:
@@ -384,7 +384,12 @@ def grade_fit_prompt_lines(grade: int, subject: str, difficulty: str) -> list[st
             ]
         )
     else:
-        lines.append("For EASY difficulty, keep it basic but still within the specified grade and subject scope.")
+        lines.extend(
+            [
+                "For EASY difficulty, keep it basic but still strictly within the specified grade and subject scope.",
+                "Do NOT use questions from a lower grade entirely; use the easiest/introductory concepts of the CURRENT grade."
+            ]
+        )
 
     return lines
 
@@ -409,6 +414,9 @@ def build_online_prompt_2d_style(
     g_int = _safe_grade_int(grade, default=3)
     eff_diff = effective_difficulty(subject, g_int, difficulty)
 
+    # 4-choice for hard mode, 2-choice otherwise
+    num_choices = 4 if eff_diff == "難しい" else 2
+
     # トピックをランダムに選択して出題の幅を広げる（2D準拠）
     topics = QUESTION_TYPES.get(subject, {}).get(g_int, ["一般"])
     topic = random.choice(topics)
@@ -416,26 +424,35 @@ def build_online_prompt_2d_style(
     if len(topic_batch) > max(2, min(6, int(count))):
         topic_batch = random.sample(topic_batch, max(2, min(6, int(count))))
 
-    example = [
-        {"q": "問題文1", "c": ["選択肢A", "選択肢B"], "a": 0, "e": "解説1"},
-        {"q": "問題文2", "c": ["選択肢C", "選択肢D"], "a": 1, "e": "解説2"},
-    ]
+    if num_choices == 4:
+        example = [
+            {"q": "問題文", "c": ["選択肢A", "選択肢B", "選択肢C", "選択肢D"], "a": 2, "e": ""},
+        ]
+        choice_instruction = "ルール2: JSONの配列(List)形式のみ出力してください。選択肢は必ず4つ。子供向けの言葉で。"
+    else:
+        example = [
+            {"q": "問題文1", "c": ["選択肢A", "選択肢B"], "a": 0, "e": ""},
+            {"q": "問題文2", "c": ["選択肢C", "選択肢D"], "a": 1, "e": ""},
+        ]
+        choice_instruction = "ルール2: JSONの配列(List)形式のみ出力してください。選択肢は2つ。子供向けの言葉で。"
     example_json = json.dumps(example, ensure_ascii=False)
 
     diff_instruction = ""
     if eff_diff == "簡単":
-        diff_instruction = "・基礎的な知識を問う問題にしてください。\n・ひねりは加えず、ストレートな問題にしてください。"
+        diff_instruction = "・指定学年で習う範囲の中で基礎的な知識を問う問題にしてください。\n・下の学年の問題にレベルを落とすのではなく、指定学年の基本レベルに留めてください。\n・ひねりは加えず、ストレートな問題にしてください。"
     elif eff_diff == "難しい":
-        diff_instruction = "・応用力や思考力を問う少し難しい問題にしてください。\n・引っかけ問題や、複数のステップを要する問題を含めても構いません。"
+        diff_instruction = "・指定学年の範囲内で応用力や思考力を問う難しい問題にしてください。\n・引っかけ問題や、複数のステップを要する問題を含めても構いません。\n・4つの選択肢は、紛らわしいが明確に1つだけ正解になるように設計してください。"
     else:
-        diff_instruction = "・標準的なレベルの問題にしてください。\n・教科書の練習問題レベルを意識してください。"
+        diff_instruction = "・指定学年の標準的なレベルの問題にしてください。\n・下の学年の復習のような簡単すぎる解法は避け、該当学年相応の思考を求めてください。\n・教科書の練習問題レベルを意識してください。"
 
+    quiz_type = "四択クイズ" if num_choices == 4 else "二択クイズ"
     lines: list[str] = [
-        f"日本の小学校{g_int}年生向け、{subject}の『{topic}』に関する二択クイズを作成してください。",
+        f"日本の小学校{g_int}年生向け、{subject}の『{topic}』に関する{quiz_type}を作成してください。",
         f"難易度設定: {eff_diff}",
         diff_instruction,
         "ルール1: 問題文に絵文字や記号を入れないこと",
-        "ルール2: JSONの配列(List)形式のみ出力してください。選択肢は2つ。子供向けの言葉で。",
+        choice_instruction,
+        "ルール3: 解説（e）は不要なので、常に空文字列 \"\" にしてください。",
         f"例: {example_json}",
         f"IMPORTANT: Return exactly {max(1, int(count))} quiz objects in one JSON array.",
         "IMPORTANT: Output JSON only, with no markdown and no extra prose.",
