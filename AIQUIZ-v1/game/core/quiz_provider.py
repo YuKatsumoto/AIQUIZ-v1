@@ -58,6 +58,16 @@ class OfflineQuizProvider:
             print(f"[bank load error] {e}")
         return {}
 
+    def total_count(self) -> int:
+        """Return total number of quizzes across all subjects/grades."""
+        total = 0
+        for subj_data in self.bank.values():
+            if isinstance(subj_data, dict):
+                for grade_list in subj_data.values():
+                    if isinstance(grade_list, list):
+                        total += len(grade_list)
+        return total
+
     def _normalize(self, raw: Dict) -> Optional[QuizItem]:
         if not isinstance(raw, dict):
             return None

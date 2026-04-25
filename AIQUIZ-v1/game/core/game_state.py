@@ -7,6 +7,7 @@ from .constants import (
     DIFFICULTY_LEVELS,
     MENU_STEP_CONFIG,
     MENU_STEP_MODE,
+    MENU_STEP_SETTINGS,
     MODE_ENDLESS,
     MODE_TEN,
     STATE_CLEAR,
@@ -24,8 +25,8 @@ from .quiz_provider import QuizItem, QuizProvider
 @dataclass
 class GameTuning:
     player_speed: float = 7.6
-    min_x: float = -4.9
-    max_x: float = 4.9
+    min_x: float = -6.5
+    max_x: float = 6.5
     wall_start_z: float = 22.0
     wall_speed: float = 6.8          # base speed (overridden dynamically)
     wall_speed_min: float = 3.0      # minimum speed (very long questions)
@@ -36,8 +37,8 @@ class GameTuning:
     left_door_x: float = 2.8
     right_door_x: float = -2.8
     # 4-choice door positions (spread across corridor with gaps)
-    door4_xs: tuple = (-4.2, -1.4, 1.4, 4.2)
-    door4_half_width: float = 0.65
+    door4_xs: tuple = (-5.8, -1.95, 1.95, 5.8)
+    door4_half_width: float = 1.0
     hit_z: float = -6.0
     correct_hold_sec: float = 1.05
 
@@ -77,9 +78,13 @@ class QuizGameState:
     correct_flash: float = 0.0
     wrong_flash: float = 0.0
     camera_shake: float = 0.0
+    camera_yaw: float = 0.0
+    camera_pitch: float = 0.0
     preload_wait_sec: float = 0.0
     min_preload_sec: float = 0.35
     target_count: int = 10
+    sfx_volume: float = 1.0
+    bgm_volume: float = 0.5
     recent_results: Deque[bool] = field(default_factory=lambda: deque(maxlen=12))
     rating_target_quiz: Optional[QuizItem] = None
     rating_feedback: str = ""
@@ -147,6 +152,8 @@ class QuizGameState:
         self.current_index = 0
         self.player_x = -1.5 if self.num_players == 2 else 0.0
         self.player_z = 0.0
+        self.camera_yaw = 0.0
+        self.camera_pitch = 0.0
         self.current_wall_index = 0
         self.game_over_timer = 0.0
         self.p1_alive = True
@@ -191,6 +198,23 @@ class QuizGameState:
         self.menu_step = MENU_STEP_MODE
         self.refresh_status_text()
 
+    def open_settings(self):
+        self.menu_step = MENU_STEP_SETTINGS
+        self.refresh_status_text()
+
+    def back_from_settings(self):
+        self.menu_step = MENU_STEP_MODE
+        self.refresh_status_text()
+
+    def set_wall_speed(self, speed: float):
+        self.tuning.wall_speed = max(3.0, min(12.0, speed))
+
+    def set_sfx_volume(self, vol: float):
+        self.sfx_volume = max(0.0, min(1.0, vol))
+
+    def set_bgm_volume(self, vol: float):
+        self.bgm_volume = max(0.0, min(1.0, vol))
+
     def update_grade(self, delta: int):
         self.grade = max(1, min(6, self.grade + delta))
         self.refresh_status_text()
@@ -217,6 +241,8 @@ class QuizGameState:
         self.correct_flash = 0.0
         self.wrong_flash = 0.0
         self.camera_shake = 0.0
+        self.camera_yaw = 0.0
+        self.camera_pitch = 0.0
         self.game_over_timer = 0.0
         self.p1_alive = True
         self.player2_x = 0.0
@@ -307,7 +333,7 @@ class QuizGameState:
             if ready and self.preload_wait_sec >= self.min_preload_sec:
                 self.game_state = STATE_PLAYING
                 self.load_current_quiz()
-            elif not ready and self.preload_wait_sec >= 6.0 and len(self.quiz_list) > 0:
+            elif not ready and self.preload_wait_sec >= 4.0 and len(self.quiz_list) > 0:
                 # Avoid infinite deadlock if bank has too few unique questions
                 if self.mode == MODE_TEN:
                     self.target_count = len(self.quiz_list)
@@ -442,11 +468,6 @@ class QuizGameState:
             self.message_text = "Correct!" if self.use_english_ui else "正解！"
             self.correct_flash = 1.0
             self.camera_shake = 0.22
-            # Trigger explosion effects for dead players
-            if not self.p1_alive:
-                self.wrong_flash = 1.0
-            if self.num_players >= 2 and not self.p2_alive:
-                self.wrong_flash = 1.0
         else:
             nc = self.num_choices
             if nc == 4:

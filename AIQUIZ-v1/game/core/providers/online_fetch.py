@@ -120,7 +120,7 @@ def _fetch_openai(prompt: str, is_fast_mode: bool = False) -> List[QuizItem]:
             model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.45,
-            timeout=20,
+            timeout=12,
         )
         text = r.choices[0].message.content if r.choices else ""
         quizzes = _extract_quizzes_from_text(text)
@@ -145,10 +145,15 @@ def _fetch_gemini(prompt: str) -> List[QuizItem]:
     model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
     try:
         client = genai.Client(api_key=api_key)
+        cfg = {
+            "temperature": 0.45,
+            "response_mime_type": "application/json",
+            "http_options": {"timeout": 15_000},
+        }
         r = client.models.generate_content(
             model=model_name,
             contents=prompt,
-            config={"temperature": 0.45, "response_mime_type": "application/json"},
+            config=cfg,
         )
         text = getattr(r, "text", "") or ""
         quizzes = _extract_quizzes_from_text(text)
@@ -178,7 +183,7 @@ def fetch_explanation_gemini(subject: str, grade: int, q: str, c: list[str], a: 
         r = client.models.generate_content(
             model=model_name,
             contents=prompt,
-            config={"temperature": 0.2},
+            config={"temperature": 0.2, "http_options": {"timeout": 10_000}},
         )
         text = getattr(r, "text", "") or ""
         # Remove any surrounding quotes or newlines
@@ -195,7 +200,7 @@ def fetch_quiz_from_online_llms_parallel(
     history: list[str] | None = None,
     good_examples: list[dict] | None = None,
     bad_examples: list[dict] | None = None,
-    first_wait_seconds: float = 12.0,
+    first_wait_seconds: float = 6.0,
     split_wait_seconds: float = -1.0,
 ) -> List[QuizItem]:
     if split_wait_seconds < 0:

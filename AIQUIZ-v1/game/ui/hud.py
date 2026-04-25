@@ -13,6 +13,7 @@ import pygame
 from game.core.constants import (
     MENU_STEP_CONFIG,
     MENU_STEP_MODE,
+    MENU_STEP_SETTINGS,
     MODE_ENDLESS,
     MODE_TEN,
     STATE_CLEAR,
@@ -24,6 +25,7 @@ from game.core.constants import (
     SUBJECTS,
 )
 from game.core.game_state import QuizGameState
+from game.core.providers.api_status import get_status, run_connectivity_check, set_offline_count
 
 
 # ---------------------------------------------------------------------------
@@ -171,6 +173,10 @@ class HudRenderer:
             if self.menu_hitboxes.get("chip_player_toggle", pygame.Rect(0, 0, 0, 0)).collidepoint(pos):
                 game.num_players = 2 if game.num_players == 1 else 1
                 return True
+            if self.menu_hitboxes.get("open_settings", pygame.Rect(0, 0, 0, 0)).collidepoint(pos):
+                game.open_settings()
+                run_connectivity_check()
+                return True
             return False
         # CONFIG step
         if self.menu_hitboxes.get("start_game", pygame.Rect(0, 0, 0, 0)).collidepoint(pos):
@@ -189,6 +195,25 @@ class HudRenderer:
                 game.subject = subject
                 game.refresh_status_text()
                 return True
+        # Settings screen
+        if self.menu_hitboxes.get("settings_back", pygame.Rect(0, 0, 0, 0)).collidepoint(pos):
+            game.back_from_settings()
+            return True
+        if self.menu_hitboxes.get("settings_recheck", pygame.Rect(0, 0, 0, 0)).collidepoint(pos):
+            run_connectivity_check()
+            return True
+        if self.menu_hitboxes.get("speed_down", pygame.Rect(0, 0, 0, 0)).collidepoint(pos):
+            game.set_wall_speed(game.tuning.wall_speed - 0.5)
+            return True
+        if self.menu_hitboxes.get("speed_up", pygame.Rect(0, 0, 0, 0)).collidepoint(pos):
+            game.set_wall_speed(game.tuning.wall_speed + 0.5)
+            return True
+        if self.menu_hitboxes.get("sfx_down", pygame.Rect(0, 0, 0, 0)).collidepoint(pos):
+            game.set_sfx_volume(game.sfx_volume - 0.1)
+            return True
+        if self.menu_hitboxes.get("sfx_up", pygame.Rect(0, 0, 0, 0)).collidepoint(pos):
+            game.set_sfx_volume(game.sfx_volume + 0.1)
+            return True
         return False
 
     def handle_click(self, pos: tuple[int, int], game: QuizGameState) -> bool:
@@ -236,6 +261,8 @@ class HudRenderer:
 
         if game.menu_step == MENU_STEP_MODE:
             self._draw_mode_select(surface, game, w, h)
+        elif game.menu_step == MENU_STEP_SETTINGS:
+            self._draw_settings(surface, game, w, h)
         else:
             self._draw_config_select(surface, game, w, h)
 
@@ -339,6 +366,216 @@ class HudRenderer:
         chip(cd, "難易度", game.difficulty, (242, 239, 231))
         llm = "ONLINE / AI生成" if game.llm_mode == "ONLINE" else "OFFLINE / 内蔵問題"
         chip(cm, "出題方式", llm, (234, 242, 236))
+
+        # Settings button (gear icon at bottom of side panel)
+        settings_btn = pygame.Rect(sp.x + 22, sp.bottom - 60, sp.w - 44, 42)
+        self.menu_hitboxes["open_settings"] = settings_btn
+        sbg = (228, 224, 214) if not settings_btn.collidepoint(self._mouse_pos) else (218, 214, 204)
+        pygame.draw.rect(surface, sbg, settings_btn, border_radius=14)
+        pygame.draw.rect(surface, (200, 192, 174), settings_btn, width=2, border_radius=14)
+        gear_txt = fsm.render("⚙  設定 / API接続状況" if not self.use_english_ui else "⚙  Settings / API Status", True, (60, 64, 70))
+        surface.blit(gear_txt, gear_txt.get_rect(center=settings_btn.center))
+
+    # -----------------------------------------------------------------------
+    # Settings screen
+    # -----------------------------------------------------------------------
+
+    def _draw_settings(self, surface, game, w, h):
+        surface.fill((244, 240, 232))
+        self.menu_hitboxes = {}
+
+        ft = self._font(42, True)
+        fs = self._font(16, True)
+        fb = self._font(22, True)
+        fm = self._font(18)
+        fsm = self._font(15)
+        fcv = self._font(20)
+
+        # Title
+        title = ft.render("設定" if not self.use_english_ui else "Settings", True, (34, 38, 42))
+        surface.blit(title, (max(36, int(w * 0.07)), int(h * 0.06)))
+
+        # Back button
+        br = pygame.Rect(w - 186, int(h * 0.06), 150, 44)
+        self.menu_hitboxes["settings_back"] = br
+        bbg = (230, 224, 210) if not br.collidepoint(self._mouse_pos) else (218, 212, 198)
+        pygame.draw.rect(surface, bbg, br, border_radius=16)
+        pygame.draw.rect(surface, (214, 204, 183), br, width=2, border_radius=16)
+        bs = fb.render("← 戻る" if not self.use_english_ui else "← Back", True, (34, 38, 42))
+        surface.blit(bs, bs.get_rect(center=br.center))
+
+        # --- Layout: two columns ---
+        margin = max(36, int(w * 0.07))
+        gap = 24
+        col_w = (w - margin * 2 - gap) // 2
+        left_x = margin
+        right_x = margin + col_w + gap
+        top_y = int(h * 0.17)
+
+        # ===== LEFT COLUMN: API / Network Status =====
+        panel_h = int(h * 0.78)
+        left_panel = pygame.Rect(left_x, top_y, col_w, panel_h)
+        pygame.draw.rect(surface, (255, 252, 245), left_panel, border_radius=22)
+        pygame.draw.rect(surface, (214, 204, 183), left_panel, width=2, border_radius=22)
+
+        sl = fs.render("NETWORK & API STATUS", True, (165, 88, 42))
+        surface.blit(sl, (left_panel.x + 22, left_panel.y + 18))
+
+        status = get_status()
+        row_y = left_panel.y + 52
+
+        def draw_status_row(y, label, status_ok, msg, detail=""):
+            """Draw a single status row with indicator dot."""
+            # Indicator dot
+            if status_ok is None:
+                dot_col = (180, 180, 60)  # yellow = checking
+            elif status_ok:
+                dot_col = (50, 200, 80)   # green = ok
+            else:
+                dot_col = (220, 60, 60)   # red = error
+            pygame.draw.circle(surface, dot_col, (left_panel.x + 36, y + 14), 8)
+            # Label
+            lbl = fb.render(label, True, (34, 38, 42))
+            surface.blit(lbl, (left_panel.x + 54, y))
+            # Status message
+            msg_col = (50, 160, 70) if status_ok else ((180, 160, 40) if status_ok is None else (200, 50, 50))
+            ms = fm.render(msg, True, msg_col)
+            surface.blit(ms, ms.get_rect(topright=(left_panel.right - 22, y + 2)))
+            # Detail line
+            if detail:
+                ds = fsm.render(detail, True, (110, 116, 125))
+                surface.blit(ds, (left_panel.x + 54, y + 28))
+            return y + (52 if detail else 38)
+
+        row_y = draw_status_row(row_y, "インターネット", status.internet_ok, status.internet_msg)
+
+        # Divider
+        pygame.draw.line(surface, (224, 218, 206),
+                         (left_panel.x + 22, row_y + 4), (left_panel.right - 22, row_y + 4), 1)
+        row_y += 16
+
+        row_y = draw_status_row(row_y, "OpenAI", status.openai_status, status.openai_msg,
+                                f"モデル: {status.openai_model}" + ("  |  キー: ✓" if status.openai_key_set else "  |  キー: ✗ 未設定"))
+
+        row_y += 6
+        row_y = draw_status_row(row_y, "Gemini", status.gemini_status, status.gemini_msg,
+                                f"モデル: {status.gemini_model}" + ("  |  キー: ✓" if status.gemini_key_set else "  |  キー: ✗ 未設定"))
+
+        # Divider
+        row_y += 6
+        pygame.draw.line(surface, (224, 218, 206),
+                         (left_panel.x + 22, row_y + 4), (left_panel.right - 22, row_y + 4), 1)
+        row_y += 16
+
+        # Offline bank info
+        bank_label = fb.render("オフライン問題バンク", True, (34, 38, 42))
+        surface.blit(bank_label, (left_panel.x + 22, row_y))
+        bank_count = fsm.render(f"{status.offline_count} 問", True, (80, 85, 92))
+        surface.blit(bank_count, bank_count.get_rect(topright=(left_panel.right - 22, row_y + 4)))
+        row_y += 36
+
+        # LLM Mode display
+        mode_label = fb.render("出題方式", True, (34, 38, 42))
+        surface.blit(mode_label, (left_panel.x + 22, row_y))
+        mode_val = "ONLINE (AI生成)" if game.llm_mode == "ONLINE" else "OFFLINE (内蔵問題)"
+        mode_col = (29, 78, 137) if game.llm_mode == "ONLINE" else (168, 73, 43)
+        mv = fcv.render(mode_val, True, mode_col)
+        surface.blit(mv, mv.get_rect(topright=(left_panel.right - 22, row_y + 2)))
+        row_y += 44
+
+        # Recheck button
+        recheck_btn = pygame.Rect(left_panel.x + 22, row_y, left_panel.w - 44, 44)
+        self.menu_hitboxes["settings_recheck"] = recheck_btn
+        rbg = (237, 244, 252) if not recheck_btn.collidepoint(self._mouse_pos) else (225, 235, 248)
+        pygame.draw.rect(surface, rbg, recheck_btn, border_radius=14)
+        pygame.draw.rect(surface, (29, 78, 137), recheck_btn, width=2, border_radius=14)
+        checking_text = "チェック中..." if status.checking else "接続を再チェック"
+        rt = fb.render(checking_text, True, (29, 78, 137))
+        surface.blit(rt, rt.get_rect(center=recheck_btn.center))
+
+        # ===== RIGHT COLUMN: Game Settings =====
+        right_panel = pygame.Rect(right_x, top_y, col_w, panel_h)
+        pygame.draw.rect(surface, (255, 252, 245), right_panel, border_radius=22)
+        pygame.draw.rect(surface, (214, 204, 183), right_panel, width=2, border_radius=22)
+
+        sr = fs.render("GAME SETTINGS", True, (165, 88, 42))
+        surface.blit(sr, (right_panel.x + 22, right_panel.y + 18))
+
+        setting_y = right_panel.y + 52
+
+        def draw_slider_row(y, label, value_text, key_down, key_up):
+            """Draw a setting row with - and + buttons."""
+            lbl = fb.render(label, True, (34, 38, 42))
+            surface.blit(lbl, (right_panel.x + 22, y))
+
+            # Value display
+            vt = fcv.render(value_text, True, (29, 78, 137))
+            val_x = right_panel.centerx
+            surface.blit(vt, vt.get_rect(center=(val_x, y + 42)))
+
+            # - button
+            btn_w = 48
+            btn_h = 36
+            minus_r = pygame.Rect(val_x - 100, y + 26, btn_w, btn_h)
+            self.menu_hitboxes[key_down] = minus_r
+            mbg = (240, 235, 226) if not minus_r.collidepoint(self._mouse_pos) else (228, 222, 212)
+            pygame.draw.rect(surface, mbg, minus_r, border_radius=10)
+            pygame.draw.rect(surface, (200, 192, 174), minus_r, width=2, border_radius=10)
+            mt = fb.render("−", True, (60, 64, 70))
+            surface.blit(mt, mt.get_rect(center=minus_r.center))
+
+            # + button
+            plus_r = pygame.Rect(val_x + 52, y + 26, btn_w, btn_h)
+            self.menu_hitboxes[key_up] = plus_r
+            pbg = (240, 235, 226) if not plus_r.collidepoint(self._mouse_pos) else (228, 222, 212)
+            pygame.draw.rect(surface, pbg, plus_r, border_radius=10)
+            pygame.draw.rect(surface, (200, 192, 174), plus_r, width=2, border_radius=10)
+            pt = fb.render("+", True, (60, 64, 70))
+            surface.blit(pt, pt.get_rect(center=plus_r.center))
+
+            return y + 78
+
+        # Wall speed
+        speed_val = f"{game.tuning.wall_speed:.1f}"
+        setting_y = draw_slider_row(setting_y, "壁の速さ (基本速度)" if not self.use_english_ui else "Wall Speed",
+                                     speed_val, "speed_down", "speed_up")
+        speed_hint = fsm.render(f"範囲: 3.0 〜 12.0  (デフォルト: 6.8)", True, (130, 134, 140))
+        surface.blit(speed_hint, (right_panel.x + 22, setting_y - 14))
+        setting_y += 16
+
+        # Divider
+        pygame.draw.line(surface, (224, 218, 206),
+                         (right_panel.x + 22, setting_y), (right_panel.right - 22, setting_y), 1)
+        setting_y += 16
+
+        # SFX Volume
+        sfx_pct = f"{int(game.sfx_volume * 100)}%"
+        setting_y = draw_slider_row(setting_y, "効果音ボリューム" if not self.use_english_ui else "SFX Volume",
+                                     sfx_pct, "sfx_down", "sfx_up")
+        setting_y += 4
+
+        # Divider
+        pygame.draw.line(surface, (224, 218, 206),
+                         (right_panel.x + 22, setting_y), (right_panel.right - 22, setting_y), 1)
+        setting_y += 18
+
+        # Info section
+        info_label = fs.render("GAME INFO", True, (165, 88, 42))
+        surface.blit(info_label, (right_panel.x + 22, setting_y))
+        setting_y += 30
+
+        info_items = [
+            ("難易度", game.difficulty),
+            ("教科", game.subject),
+            ("学年", f"{game.grade}年生"),
+            ("プレイヤー数", f"{game.num_players}人"),
+        ]
+        for label, value in info_items:
+            il = fm.render(label, True, (92, 97, 103))
+            iv = fcv.render(value, True, (34, 38, 42))
+            surface.blit(il, (right_panel.x + 28, setting_y))
+            surface.blit(iv, iv.get_rect(topright=(right_panel.right - 28, setting_y)))
+            setting_y += 30
 
     def _draw_config_select(self, surface, game, w, h):
         left_x = max(36, int(w * 0.07))

@@ -125,27 +125,14 @@ void main(){
 }
 """
 
-# Post-process: simple bloom + vignette + correct/wrong flash
-_POST_VERT = """
+# UI overlay shader (text on screen quad)
+_UI_VERT = """
 #version 330
 in vec2 in_pos;
 in vec2 in_uv;
 out vec2 v_uv;
 void main(){ v_uv = in_uv; gl_Position = vec4(in_pos, 0.0, 1.0); }
 """
-
-_POST_FRAG = """
-#version 330
-uniform sampler2D u_scene;
-in vec2 v_uv;
-out vec4 frag;
-
-void main(){
-    frag = texture(u_scene, v_uv);
-}
-"""
-
-_UI_VERT = _POST_VERT
 
 _UI_FRAG = """
 #version 330
@@ -251,8 +238,6 @@ class Renderer3D:
             vertex_shader=_SCENE_VERT, fragment_shader=_SCENE_FRAG)
         self.label_prog = self.ctx.program(
             vertex_shader=_LABEL_VERT, fragment_shader=_LABEL_FRAG)
-        self.post_prog = self.ctx.program(
-            vertex_shader=_POST_VERT, fragment_shader=_POST_FRAG)
         self.ui_prog = self.ctx.program(
             vertex_shader=_UI_VERT, fragment_shader=_UI_FRAG)
 
@@ -266,13 +251,12 @@ class Renderer3D:
             self.label_prog, [(lb, "3f 2f", "in_pos", "in_uv")])
 
         sq = self.ctx.buffer(_screen_quad().tobytes())
-        self.post_vao = self.ctx.vertex_array(
-            self.post_prog, [(sq, "2f 2f", "in_pos", "in_uv")])
         self.ui_vao = self.ctx.vertex_array(
             self.ui_prog, [(sq, "2f 2f", "in_pos", "in_uv")])
 
-        # --- Framebuffer ---
-        self._create_fbos(width, height)
+        # --- UI overlay texture ---
+        self.ui_tex = self.ctx.texture((width, height), 4)
+        self.ui_tex.filter = (moderngl.LINEAR, moderngl.LINEAR)
 
         # --- Label textures ---
         self.label_tex_l = self.ctx.texture((_LABEL_W, _LABEL_H), 4)
@@ -297,24 +281,16 @@ class Renderer3D:
         # --- Time ---
         self._t = 0.0
 
-    # ---- FBO management ----
-
-    def _create_fbos(self, w: int, h: int):
-        self.scene_col = self.ctx.texture((w, h), 4)
-        self.scene_dep = self.ctx.depth_texture((w, h))
-        self.scene_fbo = self.ctx.framebuffer(self.scene_col, self.scene_dep)
-        self.scene_col.filter = (moderngl.LINEAR, moderngl.LINEAR)
-        self.ui_tex = self.ctx.texture((w, h), 4)
-        self.ui_tex.filter = (moderngl.LINEAR, moderngl.LINEAR)
+    # ---- Resize management ----
 
     def resize(self, width: int, height: int):
         if width == self.width and height == self.height:
             return
         self.width = max(1, width)
         self.height = max(1, height)
-        for obj in (self.scene_col, self.scene_dep, self.scene_fbo, self.ui_tex):
-            obj.release()
-        self._create_fbos(self.width, self.height)
+        self.ui_tex.release()
+        self.ui_tex = self.ctx.texture((self.width, self.height), 4)
+        self.ui_tex.filter = (moderngl.LINEAR, moderngl.LINEAR)
         self.ctx.viewport = (0, 0, self.width, self.height)
 
     # ---- Safe uniform setter ----
@@ -336,21 +312,25 @@ class Renderer3D:
             # === 2-PLAYER ===
             all_dead = not game.p1_alive and not game.p2_alive
             if all_dead and game.game_over_timer > 0:
-                # Dynamic sweeping camera for 2P
+                # Zoom out + shake for 2P
                 t = min(1.0, game.game_over_timer * 0.5)
                 ease_t = 1.0 - (1.0 - t)**3
-                sweep_angle = ease_t * math.pi * 0.6
                 dist_z = -9.0 - ease_t * 10.0
                 
+                # 振動（最初激しく、徐々に収まる）
+                decay_shake = max(0.0, 1.0 - game.game_over_timer * 0.8) * 1.5
+                sx = (random.random() - 0.5) * decay_shake
+                sy = (random.random() - 0.5) * decay_shake
+                
                 eye = np.array([
-                    math.sin(sweep_angle) * 14.0 * ease_t,
-                    4.5 + bob + ease_t * 6.0,
-                    game.player_z + math.cos(sweep_angle) * dist_z
+                    sx,
+                    4.5 + bob + ease_t * 6.0 + sy,
+                    game.player_z + dist_z
                 ], dtype=np.float32)
                 
                 ctr = np.array([
-                    0.0,
-                    1.0 + ease_t * 2.0,
+                    sx * 0.5,
+                    1.0 + ease_t * 2.0 + sy * 0.5,
                     game.player_z + 8.0 * (1.0 - ease_t)
                 ], dtype=np.float32)
             else:
@@ -361,26 +341,35 @@ class Renderer3D:
             # === 1-PLAYER ===
             all_dead = not game.p1_alive
             if all_dead and game.game_over_timer > 0:
-                # Dynamic sweeping explosion camera for 1P
+                # Zoom out + shake for 1P
                 t = min(1.0, game.game_over_timer * 0.5)
                 ease_t = 1.0 - (1.0 - t)**3
-                sweep_angle = ease_t * math.pi * 0.75
                 dist = ease_t * 16.0
                 
+                # 振動（最初激しく、徐々に収まる）
+                decay_shake = max(0.0, 1.0 - game.game_over_timer * 0.8) * 1.5
+                sx = (random.random() - 0.5) * decay_shake
+                sy = (random.random() - 0.5) * decay_shake
+                
                 eye = np.array([
-                    game.player_x + math.sin(sweep_angle) * dist,
-                    1.2 + bob + ease_t * 6.0,
-                    game.player_z - math.cos(sweep_angle) * dist
+                    game.player_x + sx,
+                    1.2 + bob + ease_t * 6.0 + sy,
+                    game.player_z - dist
                 ], dtype=np.float32)
                 
                 ctr = np.array([
-                    game.player_x,
-                    1.2 + ease_t * 1.5,
+                    game.player_x + sx * 0.5,
+                    1.2 + ease_t * 1.5 + sy * 0.5,
                     game.player_z + 10.0 * (1.0 - ease_t)
                 ], dtype=np.float32)
             else:
+                yaw = game.camera_yaw
+                pitch = game.camera_pitch
+                dx = math.sin(yaw) * math.cos(pitch)
+                dy = math.sin(pitch)
+                dz = math.cos(yaw) * math.cos(pitch)
                 eye = np.array([game.player_x, 1.2 + bob, game.player_z], dtype=np.float32)
-                ctr = np.array([game.player_x, 1.2, game.player_z + 10.0], dtype=np.float32)
+                ctr = eye + np.array([dx, dy, dz], dtype=np.float32) * 10.0
             fov = 44.0
 
         # Apply camera shake
@@ -435,7 +424,7 @@ class Renderer3D:
         c = self._cube
 
         # Gray wall slab
-        c(vw, pr, eye, (0, 0.45, wz), (11.6, 3.6, 0.55), (0.50, 0.50, 0.50))
+        c(vw, pr, eye, (0, 0.45, wz), (14.0, 3.6, 0.55), (0.50, 0.50, 0.50))
 
         if game.num_choices == 4:
             # 4 doors: A(blue), B(green), C(orange), D(red)
@@ -447,7 +436,7 @@ class Renderer3D:
             ]
             for i, dx in enumerate(t.door4_xs):
                 c(vw, pr, eye, (dx, 0.18, wz),
-                  (0.85, 2.2, 0.60), door_colors[i])
+                  (1.45, 2.2, 0.60), door_colors[i])
         else:
             # 2 doors: Blue left, Red right
             c(vw, pr, eye, (t.left_door_x, 0.18, wz),
@@ -638,7 +627,7 @@ class Renderer3D:
         self._set(lp, "u_fog_far", _FOG_FAR)
 
         if game.num_choices == 4:
-            lw, lh = 1.25, 0.42
+            lw, lh = 1.35, 0.44
             textures = [self.label_tex_l, self.label_tex_r, self.label_tex_2, self.label_tex_3]
             for i, dx in enumerate(t.door4_xs):
                 model = mat4_mul(
@@ -765,10 +754,13 @@ class Renderer3D:
         self._draw_particles(eye, vw, pr)
 
     def _upload_ui(self, ui_surface: pygame.Surface):
-        if (ui_surface.get_width() != self.width
-                or ui_surface.get_height() != self.height):
-            ui_surface = pygame.transform.smoothscale(
-                ui_surface, (self.width, self.height))
+        """Upload the HUD surface to GPU. GPU LINEAR filter handles any size mismatch."""
+        sw, sh = ui_surface.get_width(), ui_surface.get_height()
+        # Recreate texture only when HUD size changes (rare: only on resize)
+        if self.ui_tex.size != (sw, sh):
+            self.ui_tex.release()
+            self.ui_tex = self.ctx.texture((sw, sh), 4)
+            self.ui_tex.filter = (moderngl.LINEAR, moderngl.LINEAR)
         self.ui_tex.write(pygame.image.tobytes(ui_surface, "RGBA", True))
 
     # ---- Main entry ----
@@ -779,8 +771,8 @@ class Renderer3D:
         self._update_particles(dt, game)
         self.ctx.viewport = (0, 0, self.width, self.height)
 
-        # Scene pass
-        self.scene_fbo.use()
+        # Draw scene directly to the default framebuffer (no FBO indirection)
+        self.ctx.screen.use()
         self.ctx.enable(
             moderngl.DEPTH_TEST | moderngl.CULL_FACE | moderngl.BLEND)
         if game.game_state == STATE_MENU:
@@ -789,18 +781,8 @@ class Renderer3D:
             self.ctx.clear(*_BG_COLOR, 1.0, depth=1.0)
         self._draw_world(game)
 
-        # Post-process to screen
-        self.ctx.screen.use()
+        # UI overlay (drawn on top, no depth test)
         self.ctx.disable(moderngl.DEPTH_TEST | moderngl.CULL_FACE)
-        self.scene_col.use(location=0)
-        pp = self.post_prog
-        self._set(pp, "u_scene", 0)
-        self._set(pp, "u_time", self._t)
-        self._set(pp, "u_correct", min(1.0, game.correct_flash))
-        self._set(pp, "u_wrong", min(1.0, game.wrong_flash))
-        self.post_vao.render()
-
-        # UI overlay
         self._upload_ui(ui_surface)
         self.ui_tex.use(location=1)
         self._set(self.ui_prog, "u_ui", 1)

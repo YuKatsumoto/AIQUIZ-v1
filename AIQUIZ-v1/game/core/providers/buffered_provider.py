@@ -50,6 +50,7 @@ class BufferedQuizProvider:
         self.yielded_count = 0
         self.llm_mode = "OFFLINE"
         self._last_online_attempt = 0.0
+        self._last_online_per_worker: dict[int, float] = {}
         self._ratings = self.ratings_service.load()
         self._adaptive_relax = 0.0
         self._recent_results: Deque[bool] = deque(maxlen=12)
@@ -65,6 +66,7 @@ class BufferedQuizProvider:
 
     def _start_workers(self) -> None:
         for i in range(self.num_workers):
+            self._last_online_per_worker[i + 1] = 0.0
             t = threading.Thread(target=self._api_worker, args=(i + 1,), daemon=True)
             self.workers.append(t)
             t.start()
@@ -177,13 +179,14 @@ class BufferedQuizProvider:
             self.yielded_count += len(out)
         return out
 
-    def _fetch_online(self, count: int) -> Optional[List[QuizItem]]:
+    def _fetch_online(self, count: int, worker_id: int = 0) -> Optional[List[QuizItem]]:
         now = time.time()
         if now < self.online_backoff_until:
             return None
-        if now - self._last_online_attempt < 0.25:
+        last = self._last_online_per_worker.get(worker_id, 0.0)
+        if now - last < 0.25:
             return None
-        self._last_online_attempt = now
+        self._last_online_per_worker[worker_id] = now
         include_image = os.getenv("GEMINI_IMAGE_MODEL", "").strip() != ""
         split_wait = float(os.getenv("LLM_SPLIT_WAIT_SECONDS_TEN", "1.0")) if self.mode == MODE_TEN else float(os.getenv("LLM_SPLIT_WAIT_SECONDS", "3.0"))
         results = fetch_quiz_from_online_llms_parallel(
@@ -252,7 +255,7 @@ class BufferedQuizProvider:
                 
                 if self.llm_mode == "ONLINE" and not force_offline:
                     batch_size = int(os.getenv("LLM_BATCH_QUESTION_COUNT_TEN", "5")) if self.mode == MODE_TEN else int(os.getenv("LLM_BATCH_QUESTION_COUNT", "3"))
-                    fetched = self._fetch_online(batch_size)
+                    fetched = self._fetch_online(batch_size, _worker_id)
                     
                 # If fetched is None, it means we skipped online fetching due to debounce/backoff.
                 # In that case, we shouldn't immediately fallback to offline unless force_offline is True.
@@ -266,7 +269,7 @@ class BufferedQuizProvider:
                 if not fetched:
                     # STRICT RULE: NEVER fetch offline problems if in ONLINE mode
                     if self.llm_mode == "ONLINE":
-                        time.sleep(1.0)
+                        time.sleep(0.3)
                         continue
 
                     # TEN mode needs a wider offline candidate set; otherwise

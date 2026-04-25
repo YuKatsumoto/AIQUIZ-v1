@@ -1,5 +1,6 @@
 import os
 import sys
+import math
 from pathlib import Path
 
 try:
@@ -16,6 +17,7 @@ from game.core.constants import STATE_PLAYING, STATE_CORRECT, STATE_GAME_OVER
 from game.core.game_state import QuizGameState
 from game.core.quiz_provider import OfflineQuizProvider
 from game.core.providers.buffered_provider import BufferedQuizProvider
+from game.core.providers.api_status import set_offline_count
 from game.core.ratings.ratings_service import RatingsService
 from game.render.renderer import Renderer3D
 from game.ui.hud import HudRenderer
@@ -36,10 +38,21 @@ def run():
     pygame.font.init()
 
     width, height = 1280, 720
+    
+    # Load graphics settings from .env (with defaults)
+    msaa_samples = int(os.getenv("MSAA_SAMPLES", "4"))
+    vsync_enabled = int(os.getenv("VSYNC", "1"))
+    target_fps = int(os.getenv("TARGET_FPS", "120"))
+    
     pygame.display.gl_set_attribute(pygame.GL_CONTEXT_MAJOR_VERSION, 3)
     pygame.display.gl_set_attribute(pygame.GL_CONTEXT_MINOR_VERSION, 3)
     pygame.display.gl_set_attribute(pygame.GL_CONTEXT_PROFILE_MASK, pygame.GL_CONTEXT_PROFILE_CORE)
-    pygame.display.set_mode((width, height), pygame.OPENGL | pygame.DOUBLEBUF | pygame.RESIZABLE)
+    
+    if msaa_samples > 0:
+        pygame.display.gl_set_attribute(pygame.GL_MULTISAMPLEBUFFERS, 1)
+        pygame.display.gl_set_attribute(pygame.GL_MULTISAMPLESAMPLES, msaa_samples)
+        
+    pygame.display.set_mode((width, height), pygame.OPENGL | pygame.DOUBLEBUF | pygame.RESIZABLE, vsync=vsync_enabled)
     pygame.display.set_caption("AI脱出クイズ 3D (Engine-Free)")
 
     try:
@@ -65,6 +78,9 @@ def run():
     provider.set_llm_mode(os.getenv("LLM_MODE", "ONLINE"))
     game = QuizGameState(provider=provider, use_english_ui=hud.use_english_ui)
 
+    # Register offline bank count for settings screen
+    set_offline_count(offline_provider.total_count())
+
     # Prepare sounds
     snd_correct = generate_correct_sound()
     snd_wrong = generate_explosion_sound()
@@ -77,13 +93,20 @@ def run():
     def apply_resize(new_w: int, new_h: int):
         nonlocal width, height
         width, height = max(960, int(new_w)), max(540, int(new_h))
-        pygame.display.set_mode((width, height), pygame.OPENGL | pygame.DOUBLEBUF | pygame.RESIZABLE)
+        pygame.display.set_mode((width, height), pygame.OPENGL | pygame.DOUBLEBUF | pygame.RESIZABLE, vsync=vsync_enabled)
         renderer.resize(width, height)
         hud.resize(width, height)
 
     while running:
-        frame_dt = min(0.05, clock.tick(120) / 1000.0)
+        frame_dt = min(0.05, clock.tick(target_fps) / 1000.0)
         accumulator += frame_dt
+
+        mouse_locked = (game.game_state == STATE_PLAYING and game.num_players == 1)
+        if pygame.event.get_grab() != mouse_locked:
+            pygame.event.set_grab(mouse_locked)
+            pygame.mouse.set_visible(not mouse_locked)
+            if mouse_locked:
+                pygame.mouse.get_rel()
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -100,6 +123,10 @@ def run():
                 apply_resize(current_w, current_h)
                 continue
             if event.type == pygame.MOUSEMOTION:
+                if mouse_locked:
+                    game.camera_yaw -= event.rel[0] * 0.002
+                    game.camera_pitch -= event.rel[1] * 0.002
+                    game.camera_pitch = max(-math.pi/2.5, min(math.pi/2.5, game.camera_pitch))
                 hud.set_mouse_pos(event.pos)
                 continue
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -141,8 +168,10 @@ def run():
             # Trigger sounds on state transition
             if prev_state != game.game_state:
                 if game.game_state == STATE_CORRECT and snd_correct:
+                    snd_correct.set_volume(game.sfx_volume)
                     snd_correct.play()
                 elif game.game_state == STATE_GAME_OVER and snd_wrong:
+                    snd_wrong.set_volume(game.sfx_volume)
                     snd_wrong.play()
                     
             accumulator -= fixed_dt
