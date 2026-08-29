@@ -65,14 +65,14 @@ except ValueError:
 print("=" * 60)
 print("【API Key Check】")
 if len(OPENAI_API_KEY) > 10:
-    print(f"🔑 OpenAI Key Loaded: {OPENAI_API_KEY[:8]}...{OPENAI_API_KEY[-4:]}")
+    print(f"[Key Check] OpenAI Key Loaded: {OPENAI_API_KEY[:8]}...{OPENAI_API_KEY[-4:]}")
 else:
-    print("❌ OpenAI Key: Not Found or Too Short")
+    print("[Key Check] OpenAI Key: Not Found or Too Short")
 
 if len(GEMINI_API_KEY) > 10:
-    print(f"🔑 Gemini Key Loaded: {GEMINI_API_KEY[:8]}...{GEMINI_API_KEY[-4:]}")
+    print(f"[Key Check] Gemini Key Loaded: {GEMINI_API_KEY[:8]}...{GEMINI_API_KEY[-4:]}")
 else:
-    print("❌ Gemini Key: Not Found or Too Short")
+    print("[Key Check] Gemini Key: Not Found or Too Short")
 print("=" * 60)
 
 chatgpt_client = None
@@ -2198,8 +2198,8 @@ class Player:
     def __init__(self, pid:int, viewport:pygame.Rect, left_key:int, right_key:int):
         self.pid = pid; self.viewport = viewport
         self.left_key = left_key; self.right_key = right_key
-        self.reset_geometry()
         self.current_quiz = {"q":"Loading...","c":[" "," "],"a":0,"e":"", "src": ""}
+        self.reset_geometry()
         self.state = "PRELOADING"; self.correct_flash_start = 0
         self.question_count = 0; self.history = []
         self.fixed_questions = []
@@ -2217,27 +2217,45 @@ class Player:
         self.assessment_correct_count = 0 # 正解数カウント
 
     def reset_geometry(self):
-        v=self.viewport
-        self.player = pygame.Rect(0,0,int(v.w*PLAYER_WIDTH_RATIO), int(v.h*PLAYER_HEIGHT_RATIO))
+        v = self.viewport
+        self.player = pygame.Rect(0, 0, int(v.w*PLAYER_WIDTH_RATIO), int(v.h*PLAYER_HEIGHT_RATIO))
         self.player.midbottom = (v.centerx, v.bottom-20)
         self.wall = pygame.Rect(v.left, v.top-int(v.h*WALL_HEIGHT_RATIO), v.w, int(v.h*WALL_HEIGHT_RATIO))
-        dw = int(v.w*DOOR_WIDTH_RATIO)
-        self.door1 = pygame.Rect(v.left + v.w*0.25 - dw//2, self.wall.y, dw, self.wall.h)
-        self.door2 = pygame.Rect(v.left + v.w*0.75 - dw//2, self.wall.y, dw, self.wall.h)
-        self.q_surf=self.c1_surf=self.c2_surf=None
-        self.q_rect=self.c1_rect=self.c2_rect=None
+        
+        choices = self.current_quiz.get("c", []) if hasattr(self, "current_quiz") else [" ", " "]
+        num_choices = len(choices) if choices else 2
+        num_choices = max(2, num_choices)
+        
+        dw_ratio = 0.22 if num_choices <= 2 else 0.14
+        dw = int(v.w * dw_ratio)
+        
+        self.doors = []
+        for i in range(num_choices):
+            center_x = v.left + (v.w / num_choices) * (i + 0.5)
+            door = pygame.Rect(int(center_x - dw // 2), self.wall.y, dw, self.wall.h)
+            self.doors.append(door)
+            
+        self.door1 = self.doors[0]
+        self.door2 = self.doors[1]
+        
+        self.q_surf = None
+        self.q_rect = None
         self.quiz_image_surf = None
         self.quiz_image_rect = None
-        self.choice_image_surfs = [None, None]
-        self.choice_image_rects = [None, None]
-        # 既存の速度比がある場合は維持し、なければデフォルト値を設定
+        
+        self.choice_surfs = [None] * num_choices
+        self.choice_rects = [None] * num_choices
+        self.choice_image_surfs = [None] * num_choices
+        self.choice_image_rects = [None] * num_choices
+        
         if not hasattr(self, "wall_speed_ratio") or self.wall_speed_ratio == 0:
             self.wall_speed_ratio = base_wall_speed
 
     def _layout_choice_content(self):
-        for idx, (door, text_surf) in enumerate(((self.door1, self.c1_surf), (self.door2, self.c2_surf))):
-            image_surf = self.choice_image_surfs[idx]
+        for idx, door in enumerate(self.doors):
+            image_surf = self.choice_image_surfs[idx] if idx < len(self.choice_image_surfs) else None
             image_rect = None
+            text_surf = self.choice_surfs[idx] if idx < len(self.choice_surfs) else None
             text_rect = None
             if image_surf:
                 image_rect = image_surf.get_rect(midtop=(door.centerx, door.top + 10))
@@ -2248,19 +2266,20 @@ class Player:
             elif text_surf:
                 text_rect = text_surf.get_rect(center=door.center)
 
-            self.choice_image_rects[idx] = image_rect
-            if idx == 0:
-                self.c1_rect = text_rect
-            else:
-                self.c2_rect = text_rect
+            if idx < len(self.choice_image_rects):
+                self.choice_image_rects[idx] = image_rect
+            if idx < len(self.choice_rects):
+                self.choice_rects[idx] = text_rect
+
+        self.c1_rect = self.choice_rects[0] if len(self.choice_rects) > 0 else None
+        self.c2_rect = self.choice_rects[1] if len(self.choice_rects) > 1 else None
 
     def _move_choice_content(self, dy):
         if dy == 0:
             return
-        if self.c1_rect:
-            self.c1_rect.move_ip(0, dy)
-        if self.c2_rect:
-            self.c2_rect.move_ip(0, dy)
+        for rect in self.choice_rects:
+            if rect:
+                rect.move_ip(0, dy)
         for rect in self.choice_image_rects:
             if rect:
                 rect.move_ip(0, dy)
@@ -2276,8 +2295,21 @@ class Player:
             requested_diff = conf.get("difficulties", {}).get(subj, "普通")
             diff = _effective_difficulty(subj, grade, requested_diff)
         
-        # 速度計算（リサイズ時は既に正しい値が入っている可能性があるが再計算して整合性を保つ）
         self.wall_speed_ratio = _compute_wall_speed_ratio_for_quiz(self.current_quiz, diff)
+        
+        choices = self.current_quiz.get("c", [])
+        num_choices = len(choices) if choices else 2
+        num_choices = max(2, num_choices)
+        
+        dw_ratio = 0.22 if num_choices <= 2 else 0.14
+        dw = int(v.w * dw_ratio)
+        self.doors = []
+        for i in range(num_choices):
+            center_x = v.left + (v.w / num_choices) * (i + 0.5)
+            door = pygame.Rect(int(center_x - dw // 2), self.wall.y, dw, self.wall.h)
+            self.doors.append(door)
+        self.door1 = self.doors[0]
+        self.door2 = self.doors[1]
         
         qlen = len(q_text)
         
@@ -2305,9 +2337,13 @@ class Player:
             self.q_rect = self.q_surf.get_rect(center=(v.centerx, v.top + int(v.h * 0.08)))
         
         choice_refs = _get_choice_image_refs(self.current_quiz)
-        self.choice_image_surfs = [None, None]
-        self.choice_image_rects = [None, None]
-        for idx, ref in enumerate(choice_refs):
+        while len(choice_refs) < num_choices:
+            choice_refs.append("")
+            
+        self.choice_image_surfs = [None] * num_choices
+        self.choice_image_rects = [None] * num_choices
+        for idx in range(num_choices):
+            ref = choice_refs[idx]
             if not ref:
                 continue
             raw_choice = load_question_image(ref)
@@ -2319,8 +2355,19 @@ class Player:
             self.choice_image_surfs[idx] = scaled
 
         choice_font_size = CHOICE_FONT_SIZE if not any(self.choice_image_surfs) else max(18, CHOICE_FONT_SIZE - 4)
-        self.c1_surf = render_text_wrapped(self.current_quiz["c"][0], self.door1.w * 0.86, choice_font_size)
-        self.c2_surf = render_text_wrapped(self.current_quiz["c"][1], self.door2.w * 0.86, choice_font_size)
+        if num_choices > 2:
+            choice_font_size = max(16, choice_font_size - 4)
+            
+        self.choice_surfs = []
+        for idx in range(num_choices):
+            txt = choices[idx] if idx < len(choices) else " "
+            surf = render_text_wrapped(txt, self.door1.w * 0.86, choice_font_size)
+            self.choice_surfs.append(surf)
+
+        self.c1_surf = self.choice_surfs[0] if len(self.choice_surfs) > 0 else None
+        self.c2_surf = self.choice_surfs[1] if len(self.choice_surfs) > 1 else None
+        
+        self.choice_rects = [None] * num_choices
         self._layout_choice_content()
 
     def adjust_difficulty(self, is_correct):
@@ -2344,7 +2391,8 @@ class Player:
                 self.prepare_surfaces()
                 self.state = "PLAYING"
                 self.wall.top = self.viewport.top - self.wall.h
-                self.door1.y = self.door2.y = self.wall.y
+                for door in self.doors:
+                    door.y = self.wall.y
                 self._layout_choice_content()
                 return True
             else:
@@ -2358,7 +2406,8 @@ class Player:
             
             self.prepare_surfaces(); self.state = "PLAYING"
             self.wall.top = self.viewport.top - self.wall.h
-            self.door1.y = self.door2.y = self.wall.y
+            for door in self.doors:
+                door.y = self.wall.y
             self._layout_choice_content()
             return True
 
@@ -2371,7 +2420,8 @@ class Player:
         self.prepare_surfaces()
         self.state = "PLAYING"
         self.wall.top = self.viewport.top - self.wall.h
-        self.door1.y = self.door2.y = self.wall.y
+        for door in self.doors:
+            door.y = self.wall.y
         self._layout_choice_content()
 
     def spawn_break_particles(self):
@@ -2446,14 +2496,18 @@ class Player:
         self.player.left = max(v.left, self.player.left); self.player.right = min(v.right, self.player.right)
 
         dy = int(v.h * self.wall_speed_ratio)
-        self.wall.y += dy; self.door1.y = self.door2.y = self.wall.y
+        self.wall.y += dy
+        for door in self.doors:
+            door.y = self.wall.y
         self._move_choice_content(dy)
 
         if self.player.top <= self.wall.bottom and self.player.bottom >= self.wall.top:
             if self.player.colliderect(self.wall):
                 choice=-1
-                if self.player.colliderect(self.door1): choice=0
-                elif self.player.colliderect(self.door2): choice=1
+                for idx, door in enumerate(self.doors):
+                    if self.player.colliderect(door):
+                        choice = idx
+                        break
                 
                 ans = self.current_quiz.get('a', -1)
                 
@@ -2523,7 +2577,9 @@ class Player:
     def draw(self, surf:pygame.Surface):
         v=self.viewport
         pygame.draw.rect(surf, (230,230,230), v, 0); pygame.draw.rect(surf, BLACK, v, 2)
-        pygame.draw.rect(surf, GRAY, self.wall); pygame.draw.rect(surf, WHITE, self.door1); pygame.draw.rect(surf, WHITE, self.door2)
+        pygame.draw.rect(surf, GRAY, self.wall)
+        for door in self.doors:
+            pygame.draw.rect(surf, WHITE, door)
         if self.state != "GAME_OVER": pygame.draw.rect(surf, BLACK, self.player)
         for p in self.particles: p.draw(surf)
         
@@ -2544,15 +2600,19 @@ class Player:
             surf.blit(self.q_surf, self.q_rect)
 
         for idx, image_surf in enumerate(self.choice_image_surfs):
-            image_rect = self.choice_image_rects[idx]
+            image_rect = self.choice_image_rects[idx] if idx < len(self.choice_image_rects) else None
             if not image_surf or not image_rect:
                 continue
             frame = image_rect.inflate(12, 12)
             pygame.draw.rect(surf, (248, 248, 248), frame, border_radius=10)
             pygame.draw.rect(surf, GRAY, frame, 1, border_radius=10)
             surf.blit(image_surf, image_rect)
-        if self.c1_surf and self.c1_rect: surf.blit(self.c1_surf, self.c1_rect)
-        if self.c2_surf and self.c2_rect: surf.blit(self.c2_surf, self.c2_rect)
+            
+        for idx in range(len(self.choice_surfs)):
+            c_surf = self.choice_surfs[idx]
+            c_rect = self.choice_rects[idx] if idx < len(self.choice_rects) else None
+            if c_surf and c_rect:
+                surf.blit(c_surf, c_rect)
         
         if self.in_assessment and self.state != "WAITING":
             subj = ASSESSMENT_SUBJECTS[self.current_assessment_subject_idx]
@@ -2586,7 +2646,9 @@ class Player:
                 q_header_surf = font_header.render("問題", True, BLACK); surf.blit(q_header_surf, (panel_rect.left + padding, current_y)); current_y += q_header_surf.get_height()
                 q_body_surf = render_text_wrapped(q.get('q', ''), panel_inner_width, 22, GRAY); surf.blit(q_body_surf, (panel_rect.left + padding, current_y)); current_y += q_body_surf.get_height() + padding
                 a_header_surf = font_header.render("正解", True, GREEN); surf.blit(a_header_surf, (panel_rect.left + padding, current_y)); current_y += a_header_surf.get_height()
-                correct_text = q.get('c', ["", ""])[ans_idx]; a_body_surf = render_text_wrapped(correct_text, panel_inner_width, 22, GREEN); surf.blit(a_body_surf, (panel_rect.left + padding, current_y)); current_y += a_body_surf.get_height() + padding
+                choices_list = q.get('c', [])
+                correct_text = choices_list[ans_idx] if ans_idx < len(choices_list) else ""
+                a_body_surf = render_text_wrapped(correct_text, panel_inner_width, 22, GREEN); surf.blit(a_body_surf, (panel_rect.left + padding, current_y)); current_y += a_body_surf.get_height() + padding
                 e_header_surf = font_header.render("解説", True, BLACK); surf.blit(e_header_surf, (panel_rect.left + padding, current_y)); current_y += e_header_surf.get_height()
                 exp_text = q.get('e') or q.get('exp') or "解説なし"; e_body_surf = render_text_wrapped(exp_text, panel_inner_width, 20, GRAY); surf.blit(e_body_surf, (panel_rect.left + padding, current_y))
         elif self.state == "CLEAR":
@@ -3135,7 +3197,7 @@ def _ranking(players_list):
     arr.sort(key=lambda x: (-x['score'], x['finish'])); return arr
 
 # ===================== メインループ =====================
-running=True
+running = (__name__ == "__main__")
 while running:
     w,h = screen.get_size()
     for e in pygame.event.get():
@@ -3152,7 +3214,9 @@ while running:
                     else: p.viewport = pygame.Rect(0, 0, e.w // 2, e.h) if p.pid==1 else pygame.Rect(e.w // 2, 0, e.w - e.w // 2, e.h)
                     p.reset_geometry()
                     new_wall_y = int(p.viewport.top + wall_ratio * p.viewport.height)
-                    p.wall.y = new_wall_y; p.door1.y = p.door2.y = new_wall_y
+                    p.wall.y = new_wall_y
+                    for door in p.doors:
+                        door.y = new_wall_y
                     p.player.centerx = int(p.viewport.left + player_ratio * p.viewport.width)
                     p.player.left = max(p.viewport.left, p.player.left)
                     p.player.right = min(p.viewport.right, p.player.right)
